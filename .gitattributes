@@ -1,0 +1,14 @@
+# Normaliza quebras de linha: LF no repositório e no servidor (Linux),
+# evitando que o projeto inteiro apareça como modificado no Windows.
+* text=auto eol=lf
+
+# Binários — não mexer
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary

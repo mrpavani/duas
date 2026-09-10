@@ -1,0 +1,67 @@
+# ==========================================================================
+# DUÁS - arquivos que NÃO vão para o versionamento
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# CREDENCIAIS - nunca versionar
+# Contêm usuário e senha do banco. Envie o config.prod.php para a Hostinger
+# manualmente (uma vez, via File Manager ou FTP).
+# --------------------------------------------------------------------------
+includes/config.php
+includes/config.prod.php
+includes/config.*.php
+!includes/config.example.php
+
+# --------------------------------------------------------------------------
+# CONTEÚDO ENVIADO PELO PAINEL
+# Fotos de produtos e capas de posts são criadas em produção. Versioná-las
+# faria o deploy sobrescrever o que a loja já tem no ar.
+# Os diretórios continuam existindo por causa dos .gitkeep.
+# --------------------------------------------------------------------------
+uploads/products/*
+uploads/blog/*
+!uploads/products/.gitkeep
+!uploads/blog/.gitkeep
+
+# --------------------------------------------------------------------------
+# LOGS - a Hostinger cria error_log em cada pasta
+# --------------------------------------------------------------------------
+error_log
+*.log
+logs/
+
+# --------------------------------------------------------------------------
+# FERRAMENTAS DE DESENVOLVIMENTO
+# --------------------------------------------------------------------------
+.mcp.json
+.claude/
+node_modules/
+vendor/
+composer.lock
+
+# --------------------------------------------------------------------------
+# EDITORES E SISTEMA OPERACIONAL
+# --------------------------------------------------------------------------
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --------------------------------------------------------------------------
+# BACKUPS E TEMPORÁRIOS
+# --------------------------------------------------------------------------
+*.bak
+*.orig
+*.tmp
+*.old
+*.zip
+*.rar
+*.tar.gz
+*.sql.gz
+dump*.sql
+backup*/

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            margin: 24px;
+        }
+
+        h1 {
+            color: #121212;
+            border-bottom: 2px solid #121212;
+            padding-bottom: 8px;
+        }
+
+        h2 {
+            color: #333333;
+            margin-top: 28px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        h3 {
+            color: #555555;
+            margin-top: 18px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+
+        th,
+        td {
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f7f6f4;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        ul,
+        ol {
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        .token-code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>PRD, Design System & Especificação Técnica: Duás | Por Larissa e Leticia</h1>
+
+    <p>Este documento consolidado foi estruturado especificamente para ser interpretado e executado por ferramentas de
+        desenvolvimento assistido e geradores de código como o <strong>AntiGravity</strong>, contendo a arquitetura de
+        telas, tokens visuais e regras de negócio do e-commerce <strong>Duás</strong>.</p>
+
+    <hr>
+
+    <h2>1. Arquitetura de Telas (Site Map)</h2>
+
+    <p>O projeto mapeado no Figma é composto por 9 telas principais que devem ser geradas estruturalmente no
+        AntiGravity:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Nome do Frame (Figma)</th>
+                <th>Rota / Caminho</th>
+                <th>Componentes Chave e Layout</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>DUÁS - Home</strong></td>
+                <td>/</td>
+                <td>Hero banner editorial, carrossel de lançamentos, blocos institucionais e feed do blog.</td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Peças</strong></td>
+                <td>/pecas</td>
+                <td>Grid de listagem de produtos (4 colunas desktop, 2 colunas mobile) com barra de filtros e ordenação.
+                </td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Peças Individual</strong></td>
+                <td>/pecas/[id]</td>
+                <td>PDP com galeria de fotos vertical, seletor de tamanho (P/M/G), guia de medidas e botão de compra.
+                </td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Quem Somos</strong></td>
+                <td>/quem-somos</td>
+                <td>Página institucional com narrativa e imagens de lifestyle da marca de Larissa e Leticia.</td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Blog</strong></td>
+                <td>/blog</td>
+                <td>Listagem de artigos e matérias editoriais sobre estilo de vida e moda.</td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Blog/Interno</strong></td>
+                <td>/blog/[slug]</td>
+                <td>Leitura detalhada de post individual do blog com diagramação tipográfica limpa.</td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Contato</strong></td>
+                <td>/contato</td>
+                <td>Formulário de atendimento ao cliente, canais de suporte e dados institucionais.</td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Conta</strong></td>
+                <td>/conta</td>
+                <td>Painel autenticado do cliente com histórico de pedidos e gerenciamento de endereços.</td>
+            </tr>
+            <tr>
+                <td><strong>DUÁS - Carrinho</strong></td>
+                <td>/carrinho (Drawer)</td>
+                <td>Sacola lateral deslizante com resumo de itens, cálculo de frete e botão de checkout.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>2. Design Tokens (Variáveis Visuais)</h2>
+
+    <h3>Paleta de Cores Oficial</h3>
+    <ul>
+        <li><strong>Cor Primária (Textos e Ações):</strong> #121212 (Preto Editorial)</li>
+        <li><strong>Cor de Fundo Principal:</strong> #FFFFFF (Branco Puro)</li>
+        <li><strong>Cor de Fundo Neutra / Seções:</strong> #F7F6F4 (Creme / Off-White)</li>
+        <li><strong>Texto Secundário / Legendas:</strong> #666666 (Cinza Médio)</li>
+        <li><strong>Bordas e Divisores:</strong> #E5E5E5 (Cinza Claro)</li>
+    </ul>
+
+    <h3>Tipografia</h3>
+    <ul>
+        <li><strong>Títulos (Headings / Editorial):</strong> Fontes Serifadas de alto padrão (ex: Playfair Display ou
+            Cormorant Garamond).</li>
+        <li><strong>Corpo e UI (Botões, Inputs, Menus):</strong> Fontes Sans-Serif modernas e limpas (ex: Inter ou
+            Montserrat).</li>
+    </ul>
+
+    <hr>
+
+    <h2>3. Especificações Técnicas para Geração de Código</h2>
+
+    <ol>
+        <li><strong>Padrão de Responsividade (Mobile-First):</strong> Todos os layouts devem transicionar perfeitamente
+            de uma coluna única otimizada para mobile para grids multi-colunas no desktop (breakpoints padrão em 768px e
+            1024px).</li>
+        <li><strong>Modelos de Dados (Entities):</strong>
+            <ul>
+                <li>Product: name, slug, description, price, salePrice, images (array), sizes (P, M, G), category.</li>
+                <li>BlogPost: title, slug, coverImage, content, publishedAt.</li>
+                <li>CartItem: productId, quantity, selectedSize.</li>
+            </ul>
+        </li>
+        <li><strong>Componentes Globais Obrigatórios:</strong> Header fixo com logotipo centralizado e ícones de
+            utilidade, Footer com newsletter e links institucionais, e Drawer de Carrinho interativo.</li>
+    </ol>
+
+</body>
+
+</html>
