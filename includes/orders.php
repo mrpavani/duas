@@ -63,7 +63,8 @@ function get_order_events(int $orderId): array
  *
  * @param array $cart        $_SESSION['cart']
  * @param array $totals      ['subtotal','discount','shipping','total','coupon']
- * @param array $customer    ['name','email','doc','address']
+ * @param array $customer    ['name','email','phone','doc','cep','street','number',
+ *                           'complement','district','city','state','address']
  * @param array|null $paymentMethod  linha de payment_methods escolhida
  * @param string $shippingLabel
  * @return array  registro do pedido recém-criado (get_order)
@@ -76,19 +77,26 @@ function create_order_from_cart(array $cart, array $totals, array $customer, ?ar
     $provider = $paymentMethod['provider'] ?? null;
     $pLabel   = $paymentMethod['label'] ?? null;
     $pRef     = isset($paymentMethod['id']) ? (int) $paymentMethod['id'] : null;
+    $v = fn(string $k) => trim((string) ($customer[$k] ?? '')) ?: null;
 
     $pdo->prepare('
         INSERT INTO orders
             (order_code, status, payment_status, payment_provider, payment_label, payment_method_ref,
              fulfillment_status, shipping_label, subtotal, discount, shipping, total, coupon_code, placed_at,
-             customer_name, customer_email, customer_doc, shipping_address)
+             customer_name, customer_email, customer_phone, customer_doc, shipping_address,
+             shipping_cep, shipping_street, shipping_number, shipping_complement,
+             shipping_district, shipping_city, shipping_state, consent_at, consent_ip)
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(),
+             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
     ')->execute([
         $code, 'Recebido', 'pending', $provider, $pLabel, $pRef,
         'aguardando_pagamento', $shippingLabel,
         $totals['subtotal'], $totals['discount'], $totals['shipping'], $totals['total'], $totals['coupon'] ?: null,
-        $customer['name'] ?: null, $customer['email'] ?: null, $customer['doc'] ?: null, $customer['address'] ?: null,
+        $v('name'), $v('email'), $v('phone'), $v('doc'), $v('address'),
+        $v('cep'), $v('street'), $v('number'), $v('complement'),
+        $v('district'), $v('city'), $v('state'),
+        $_SERVER['REMOTE_ADDR'] ?? null,
     ]);
     $orderId = (int) $pdo->lastInsertId();
 

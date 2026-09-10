@@ -108,13 +108,38 @@ $orderCompleted = false;
 $placedOrder = null;
 $checkoutError = null;
 
+$formErros = [];
+$form = [];
+
 if (isset($_POST['place_order']) && !empty($cartItems)) {
-    $customer = [
-        'name'    => trim($_POST['cust_name'] ?? ''),
-        'email'   => trim($_POST['cust_email'] ?? ''),
-        'doc'     => trim($_POST['cust_doc'] ?? ''),
-        'address' => trim($_POST['cust_address'] ?? ''),
-    ];
+    // Todos os dados são pedidos a cada compra: nada fica guardado entre visitas.
+    foreach (['name','email','phone','doc','cep','street','number','complement','district','city','state'] as $campo) {
+        $form[$campo] = trim((string) ($_POST['cust_' . $campo] ?? ''));
+    }
+    $form['state'] = strtoupper(substr($form['state'], 0, 2));
+    $form['address'] = trim(sprintf(
+        '%s, %s%s - %s, %s / %s - CEP %s',
+        $form['street'], $form['number'],
+        $form['complement'] !== '' ? ' (' . $form['complement'] . ')' : '',
+        $form['district'], $form['city'], $form['state'], $form['cep']
+    ));
+
+    // Validação
+    if ($form['name'] === '' || !str_contains($form['name'], ' ')) $formErros[] = 'Informe seu nome completo.';
+    if (!filter_var($form['email'], FILTER_VALIDATE_EMAIL))         $formErros[] = 'Informe um e-mail válido.';
+    if (strlen(only_digits($form['phone'])) < 10)                   $formErros[] = 'Informe um telefone com DDD.';
+    if (strlen(only_digits($form['doc'])) !== 11)                   $formErros[] = 'Informe um CPF válido (11 dígitos).';
+    if (strlen(only_digits($form['cep'])) !== 8)                    $formErros[] = 'Informe um CEP válido (8 dígitos).';
+    if ($form['street'] === '')                                     $formErros[] = 'Informe o endereço (rua).';
+    if ($form['number'] === '')                                     $formErros[] = 'Informe o número.';
+    if ($form['district'] === '')                                   $formErros[] = 'Informe o bairro.';
+    if ($form['city'] === '')                                       $formErros[] = 'Informe a cidade.';
+    if (strlen($form['state']) !== 2)                               $formErros[] = 'Informe o estado (UF).';
+    if (empty($_POST['lgpd_consent']))                              $formErros[] = 'É necessário aceitar a Política de Privacidade para concluir a compra.';
+}
+
+if (isset($_POST['place_order']) && !empty($cartItems) && !$formErros) {
+    $customer = $form;
     $mpType = trim($_POST['mp_type'] ?? '');
 
     $totals = [
@@ -132,16 +157,6 @@ if (isset($_POST['place_order']) && !empty($cartItems)) {
         db()->prepare('UPDATE promotions SET used_count = used_count + 1 WHERE id = ?')->execute([$appliedPromo['id']]);
     }
 
-    // Espelha em "Meus Pedidos" (conta.php)
-    $sessItems = [];
-    foreach (get_order_items($oid) as $oi) {
-        $sessItems[] = ['name' => $oi['product_name'], 'size' => $oi['size'], 'qty' => $oi['quantity'], 'price' => $oi['unit_price']];
-    }
-    array_unshift($_SESSION['orders'], [
-        'id' => $placedOrder['order_code'], 'date' => date('d/m/Y'),
-        'status' => 'Aguardando pagamento', 'total' => (float) $placedOrder['total'], 'items' => $sessItems,
-    ]);
-
     $_SESSION['cart'] = [];
     unset($_SESSION['coupon']);
 
@@ -151,14 +166,58 @@ if (isset($_POST['place_order']) && !empty($cartItems)) {
     if (mp_is_ready() && $mpType !== '' && isset($mpTypes[$mpType])) {
         // ---- Checkout transparente: pagamento direto pela API do Mercado Pago ----
         [$firstName, $lastName] = split_full_name($customer['name']);
+        $fone     = only_digits($customer['phone']);
+        $ddd      = substr($fone, 0, 2);
+        $foneNum  = substr($fone, 2);
+        // O MP usa nomes de campo diferentes em cada bloco de endereço
+        $endereco = [ // payer.address (boleto)
+            'zip_code'      => only_digits($customer['cep']),
+            'street_name'   => $customer['street'],
+            'street_number' => $customer['number'],
+            'neighborhood'  => $customer['district'],
+            'city'          => $customer['city'],
+            'federal_unit'  => $customer['state'],
+        ];
+        $enderecoEntrega = [ // additional_info.shipments.receiver_address
+            'zip_code'      => only_digits($customer['cep']),
+            'street_name'   => $customer['street'],
+            'street_number' => $customer['number'],
+            'city_name'     => $customer['city'],
+            'state_name'    => $customer['state'],
+            'apartment'     => $customer['complement'],
+        ];
+
+        // Todos os dados do formulário alimentam o pagamento
         $payload = [
             'transaction_amount' => round((float) $grandTotal, 2),
             'description'        => 'Pedido ' . $placedOrder['order_code'] . ' - Duás',
             'external_reference' => $placedOrder['order_code'],
             'payer' => [
-                'email'      => $customer['email'],
-                'first_name' => $firstName,
-                'last_name'  => $lastName,
+                'email'          => $customer['email'],
+                'first_name'     => $firstName,
+                'last_name'      => $lastName,
+                'identification' => ['type' => 'CPF', 'number' => only_digits($customer['doc'])],
+                'phone'          => ['area_code' => $ddd, 'number' => $foneNum],
+                'address'        => $endereco,
+            ],
+            'additional_info' => [
+                'items' => array_map(fn($oi) => [
+                    'id'          => (string) $oi['product_id'],
+                    'title'       => $oi['product_name'],
+                    'quantity'    => (int) $oi['quantity'],
+                    'unit_price'  => (float) $oi['unit_price'],
+                ], get_order_items($oid)),
+                'payer' => [
+                    'first_name' => $firstName,
+                    'last_name'  => $lastName,
+                    'phone'      => ['area_code' => $ddd, 'number' => $foneNum],
+                    'address'    => [
+                        'zip_code'      => $endereco['zip_code'],
+                        'street_name'   => $endereco['street_name'],
+                        'street_number' => $endereco['street_number'],
+                    ],
+                ],
+                'shipments' => ['receiver_address' => array_filter($enderecoEntrega, fn($v) => $v !== '')],
             ],
         ];
         // O MP recusa notification_url que não seja HTTPS público (ambiente local)
@@ -172,29 +231,14 @@ if (isset($_POST['place_order']) && !empty($cartItems)) {
             $payload['payment_method_id'] = trim($_POST['mp_payment_method_id'] ?? '');
             $payload['installments']      = $mpType === 'credit_card' ? max(1, (int) ($_POST['mp_installments'] ?? 1)) : 1;
             if (!empty($_POST['mp_issuer_id'])) $payload['issuer_id'] = trim($_POST['mp_issuer_id']);
-            $payload['payer']['identification'] = ['type' => 'CPF', 'number' => only_digits($_POST['mp_card_doc'] ?? $customer['doc'])];
             if ($payload['token'] === '')             $formErrors[] = 'Não recebemos os dados do cartão. Revise o número, validade e CVV.';
             if ($payload['payment_method_id'] === '') $formErrors[] = 'Não identificamos a bandeira do cartão.';
         } elseif ($mpType === 'bank_transfer') {
             $payload['payment_method_id'] = 'pix';
-            $payload['payer']['first_name'] = trim($_POST['mp_pix_name'] ?? $firstName) ?: $firstName;
-            $payload['payer']['identification'] = ['type' => 'CPF', 'number' => only_digits($_POST['mp_pix_doc'] ?? $customer['doc'])];
             // O MP exige yyyy-MM-dd'T'HH:mm:ss.SSSZ (com milissegundos)
             $payload['date_of_expiration'] = date('Y-m-d\TH:i:s.000P', strtotime('+1 day'));
         } elseif ($mpType === 'ticket' || $mpType === 'atm') {
             $payload['payment_method_id'] = trim($_POST['mp_bol_method'] ?? '') ?: ($mpTypes[$mpType][0]['id'] ?? 'bolbradesco');
-            $payload['payer']['identification'] = ['type' => 'CPF', 'number' => only_digits($_POST['mp_bol_doc'] ?? $customer['doc'])];
-            $payload['payer']['address'] = [
-                'zip_code'      => only_digits($_POST['mp_bol_cep'] ?? ''),
-                'street_name'   => trim($_POST['mp_bol_street'] ?? ''),
-                'street_number' => trim($_POST['mp_bol_number'] ?? ''),
-                'neighborhood'  => trim($_POST['mp_bol_hood'] ?? ''),
-                'city'          => trim($_POST['mp_bol_city'] ?? ''),
-                'federal_unit'  => strtoupper(trim($_POST['mp_bol_uf'] ?? '')),
-            ];
-            foreach (['zip_code' => 'CEP', 'street_name' => 'rua', 'street_number' => 'número', 'city' => 'cidade', 'federal_unit' => 'UF'] as $k => $lbl) {
-                if ($payload['payer']['address'][$k] === '') $formErrors[] = 'Informe o campo ' . $lbl . ' para gerar o boleto.';
-            }
         }
 
         if ($formErrors) {
@@ -326,10 +370,18 @@ function render_result_card(string $tone, string $title, string $message, array 
                 <a href="pecas.php" class="btn btn-primary">Voltar às compras</a>
                 <a href="contato.php" class="btn btn-secondary">Falar com o atendimento</a>
             <?php else: ?>
-                <a href="conta.php" class="btn btn-primary">Acompanhar em Meus Pedidos</a>
-                <a href="pecas.php" class="btn btn-secondary">Continuar comprando</a>
+                <a href="pecas.php" class="btn btn-primary">Continuar comprando</a>
+                <a href="contato.php" class="btn btn-secondary">Falar com o atendimento</a>
             <?php endif; ?>
         </div>
+
+        <?php if ($order): ?>
+            <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 20px; line-height: 1.6;">
+                Guarde o número do pedido. Todas as atualizações &mdash; confirmação do pagamento,
+                separação e envio com o código de rastreio &mdash; chegam por e-mail em
+                <strong><?php echo htmlspecialchars($order['customer_email'] ?: 'seu e-mail'); ?></strong>.
+            </p>
+        <?php endif; ?>
     </div>
     <?php
 }
@@ -407,29 +459,75 @@ function render_result_card(string $tone, string $title, string $message, array 
                         <?php endforeach; ?>
                     </div>
 
+                    <?php if ($formErros): ?>
+                        <div class="checkout-erros">
+                            <strong>Revise antes de continuar:</strong>
+                            <ul>
+                                <?php foreach ($formErros as $e): ?><li><?php echo htmlspecialchars($e); ?></li><?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+
                     <form action="carrinho.php" method="POST" id="checkoutForm">
-                        <h3 style="font-size: 1.2rem; margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Dados de Entrega & Pagamento</h3>
+                        <h3 style="font-size: 1.2rem; margin-bottom: 6px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Seus Dados</h3>
+                        <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-bottom: 16px;">
+                            Pedimos estes dados a cada compra &mdash; a loja não guarda cadastro nem senha.
+                            Você acompanha o pedido pelo e-mail informado.
+                        </p>
 
-                        <div class="checkout-fields">
-                            <div>
-                                <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 6px;">Nome Completo</label>
-                                <input type="text" name="cust_name" class="form-input" value="Mariana Silva" required>
+                        <div class="ck-grid">
+                            <div class="ck-full">
+                                <label>Nome completo *</label>
+                                <input type="text" name="cust_name" class="form-input" value="<?php echo htmlspecialchars($form['name'] ?? ''); ?>" placeholder="Como no documento" autocomplete="name" required>
                             </div>
                             <div>
-                                <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 6px;">CPF</label>
-                                <input type="text" name="cust_doc" class="form-input" value="123.456.789-00" required>
+                                <label>E-mail *</label>
+                                <input type="email" name="cust_email" class="form-input" value="<?php echo htmlspecialchars($form['email'] ?? ''); ?>" placeholder="voce@exemplo.com" autocomplete="email" required>
+                            </div>
+                            <div>
+                                <label>Telefone com DDD *</label>
+                                <input type="tel" name="cust_phone" class="form-input" value="<?php echo htmlspecialchars($form['phone'] ?? ''); ?>" placeholder="(11) 99999-9999" autocomplete="tel" required>
+                            </div>
+                            <div>
+                                <label>CPF *</label>
+                                <input type="text" name="cust_doc" class="form-input" value="<?php echo htmlspecialchars($form['doc'] ?? ''); ?>" placeholder="000.000.000-00" inputmode="numeric" required>
                             </div>
                         </div>
 
-                        <div style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 6px;">E-mail</label>
-                            <input type="email" name="cust_email" class="form-input" value="mariana.silva@exemplo.com" required>
+                        <h3 style="font-size: 1.2rem; margin: 28px 0 16px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Endereço de Entrega</h3>
+
+                        <div class="ck-grid">
+                            <div>
+                                <label>CEP *</label>
+                                <input type="text" name="cust_cep" id="ckCep" class="form-input" value="<?php echo htmlspecialchars($form['cep'] ?? ''); ?>" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" required>
+                            </div>
+                            <div>
+                                <label>Número *</label>
+                                <input type="text" name="cust_number" class="form-input" value="<?php echo htmlspecialchars($form['number'] ?? ''); ?>" placeholder="123" required>
+                            </div>
+                            <div class="ck-full">
+                                <label>Rua / logradouro *</label>
+                                <input type="text" name="cust_street" id="ckStreet" class="form-input" value="<?php echo htmlspecialchars($form['street'] ?? ''); ?>" autocomplete="address-line1" required>
+                            </div>
+                            <div>
+                                <label>Complemento</label>
+                                <input type="text" name="cust_complement" class="form-input" value="<?php echo htmlspecialchars($form['complement'] ?? ''); ?>" placeholder="Apto, bloco&hellip;">
+                            </div>
+                            <div>
+                                <label>Bairro *</label>
+                                <input type="text" name="cust_district" id="ckDistrict" class="form-input" value="<?php echo htmlspecialchars($form['district'] ?? ''); ?>" required>
+                            </div>
+                            <div>
+                                <label>Cidade *</label>
+                                <input type="text" name="cust_city" id="ckCity" class="form-input" value="<?php echo htmlspecialchars($form['city'] ?? ''); ?>" required>
+                            </div>
+                            <div>
+                                <label>Estado (UF) *</label>
+                                <input type="text" name="cust_state" id="ckState" class="form-input" value="<?php echo htmlspecialchars($form['state'] ?? ''); ?>" maxlength="2" placeholder="SP" required>
+                            </div>
                         </div>
 
-                        <div style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 6px;">Endereço de Entrega</label>
-                            <input type="text" name="cust_address" class="form-input" value="Rua Oscar Freire, 980 - Apto 42, Jardins - São Paulo / SP" required>
-                        </div>
+                        <h3 style="font-size: 1.2rem; margin: 28px 0 16px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Pagamento</h3>
 
                         <div class="mp-pay" style="margin-bottom: 24px;">
                             <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 8px;">Forma de Pagamento</label>
@@ -473,10 +571,6 @@ function render_result_card(string $tone, string $title, string $message, array 
                                                 <label>Código de segurança (CVV)</label>
                                                 <input type="text" class="form-input" name="mp_card_cvv" inputmode="numeric" autocomplete="cc-csc" placeholder="000">
                                             </div>
-                                            <div>
-                                                <label>CPF do titular</label>
-                                                <input type="text" class="form-input" name="mp_card_doc" inputmode="numeric" placeholder="000.000.000-00">
-                                            </div>
                                             <div class="mp-installments-wrap" hidden>
                                                 <label>Parcelas</label>
                                                 <select class="form-input" name="mp_installments">
@@ -493,17 +587,10 @@ function render_result_card(string $tone, string $title, string $message, array 
                                 <!-- Pix -->
                                 <?php if (isset($mpTypes['bank_transfer'])): ?>
                                     <div class="mp-fields" data-type="bank_transfer" hidden>
-                                        <div class="mp-grid">
-                                            <div>
-                                                <label>Nome completo</label>
-                                                <input type="text" class="form-input" name="mp_pix_name" placeholder="Titular da conta">
-                                            </div>
-                                            <div>
-                                                <label>CPF</label>
-                                                <input type="text" class="form-input" name="mp_pix_doc" inputmode="numeric" placeholder="000.000.000-00">
-                                            </div>
-                                        </div>
-                                        <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 8px;">Após finalizar, você recebe um QR Code Pix. O pedido é liberado assim que o pagamento é compensado.</p>
+                                        <p style="font-size: 0.82rem; color: var(--color-text-muted);">
+                                            Usamos os dados que você preencheu acima para gerar a cobrança.
+                                            Ao finalizar, aparece o <strong>QR Code Pix</strong>; o pedido é liberado assim que o pagamento é compensado.
+                                        </p>
                                     </div>
                                 <?php endif; ?>
 
@@ -512,17 +599,10 @@ function render_result_card(string $tone, string $title, string $message, array 
                                     <?php $boletoType = isset($mpTypes['ticket']) ? 'ticket' : 'atm'; ?>
                                     <div class="mp-fields" data-type="<?php echo $boletoType; ?>" hidden>
                                         <input type="hidden" name="mp_bol_method" value="<?php echo htmlspecialchars($mpTypes[$boletoType][0]['id'] ?? 'bolbradesco'); ?>">
-                                        <div class="mp-grid">
-                                            <div><label>Nome completo</label><input type="text" class="form-input" name="mp_bol_name" placeholder="Nome do pagador"></div>
-                                            <div><label>CPF</label><input type="text" class="form-input" name="mp_bol_doc" inputmode="numeric" placeholder="000.000.000-00"></div>
-                                            <div><label>CEP</label><input type="text" class="form-input" name="mp_bol_cep" inputmode="numeric" placeholder="00000-000"></div>
-                                            <div><label>Número</label><input type="text" class="form-input" name="mp_bol_number" placeholder="123"></div>
-                                            <div class="mp-col-full"><label>Rua / logradouro</label><input type="text" class="form-input" name="mp_bol_street"></div>
-                                            <div><label>Bairro</label><input type="text" class="form-input" name="mp_bol_hood"></div>
-                                            <div><label>Cidade</label><input type="text" class="form-input" name="mp_bol_city"></div>
-                                            <div><label>UF</label><input type="text" class="form-input" name="mp_bol_uf" maxlength="2" placeholder="SP"></div>
-                                        </div>
-                                        <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 8px;">O boleto tem compensação em até 2 dias úteis. O pedido é liberado após o pagamento.</p>
+                                        <p style="font-size: 0.82rem; color: var(--color-text-muted);">
+                                            O boleto é emitido com o nome, CPF e endereço preenchidos acima.
+                                            A compensação leva até 2 dias úteis e o pedido é liberado após o pagamento.
+                                        </p>
                                     </div>
                                 <?php endif; ?>
 
@@ -533,6 +613,21 @@ function render_result_card(string $tone, string $title, string $message, array 
                             <?php else: ?>
                                 <p style="font-size: 0.85rem; color: var(--color-error);">Nenhum meio de pagamento ativo. Cadastre o Mercado Pago em <strong>/admin</strong>.</p>
                             <?php endif; ?>
+                        </div>
+
+                        <div class="lgpd-box">
+                            <label class="lgpd-check">
+                                <input type="checkbox" name="lgpd_consent" value="1" required <?php echo !empty($_POST['lgpd_consent']) ? 'checked' : ''; ?>>
+                                <span>
+                                    Li e aceito a <a href="politica-privacidade.php" target="_blank" rel="noopener">Política de Privacidade</a>.
+                                    Autorizo o uso dos meus dados para processar o pagamento, emitir a nota e entregar o pedido.
+                                </span>
+                            </label>
+                            <p class="lgpd-nota">
+                                Os dados do cartão são digitados em campo criptografado e enviados direto ao
+                                <strong>Mercado Pago</strong>, que é o responsável pelo processamento e pela guarda dessas
+                                informações. <strong>A Duás não recebe nem armazena número de cartão ou código de segurança.</strong>
+                            </p>
                         </div>
 
                         <input type="hidden" name="place_order" value="1">

@@ -7,7 +7,23 @@
 
 require_once __DIR__ . '/db.php';
 
+/**
+ * O carrinho é sempre temporário: vive só enquanto o navegador estiver aberto.
+ * - cookie de sessão sem lifetime -> o navegador descarta ao fechar
+ * - TTL de inatividade no servidor -> cobre navegadores que restauram a sessão
+ * Nenhum dado do cliente fica guardado entre visitas (LGPD: minimização).
+ */
+const CARRINHO_TTL_SEGUNDOS = 7200; // 2 horas de inatividade
+
 if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    ]);
+    session_name('DUAS_LOJA');
     session_start();
 }
 
@@ -16,30 +32,12 @@ if (!isset($_SESSION['cart'])) {
     $_SESSION['cart'] = [];
 }
 
-// Initialize Sample Orders Session if not set
-if (!isset($_SESSION['orders'])) {
-    $_SESSION['orders'] = [
-        [
-            'id' => 'DUAS-9482',
-            'date' => '04/09/2026',
-            'status' => 'Entregue',
-            'total' => 1280.00,
-            'items' => [
-                ['name' => 'Vestido Midi Alfaiataria Duás', 'size' => 'M', 'qty' => 1, 'price' => 790.00],
-                ['name' => 'Regata Linho Puro Off-White', 'size' => 'P', 'qty' => 1, 'price' => 490.00]
-            ]
-        ],
-        [
-            'id' => 'DUAS-9210',
-            'date' => '18/08/2026',
-            'status' => 'Entregue',
-            'total' => 890.00,
-            'items' => [
-                ['name' => 'Blazer Oversized Estruturado', 'size' => 'M', 'qty' => 1, 'price' => 890.00]
-            ]
-        ]
-    ];
+// Expira o carrinho por inatividade
+if (isset($_SESSION['cart_touched']) && (time() - (int) $_SESSION['cart_touched']) > CARRINHO_TTL_SEGUNDOS) {
+    $_SESSION['cart'] = [];
+    unset($_SESSION['coupon'], $_SESSION['checkout']);
 }
+$_SESSION['cart_touched'] = time();
 
 /**
  * Normalizes string for accent-insensitive and case-insensitive search

@@ -6,14 +6,60 @@
 document.addEventListener('DOMContentLoaded', () => {
     initCartDrawer();
     initPDPControls();
-    initSearchModal();
     initMeasuresModal();
     initMobileNav();
     initAccordions();
     initNewsletterForm();
     initDepartmentsMenu();
     initCarousels();
+    initCookieBar();
+    initCepLookup();
 });
+
+/**
+ * Aviso de cookies (LGPD) — some depois do aceite
+ */
+function initCookieBar() {
+    const bar = document.getElementById('cookieBar');
+    const btn = document.getElementById('cookieAccept');
+    if (!bar || !btn) return;
+
+    let aceito = false;
+    try { aceito = localStorage.getItem('duas_cookies_ok') === '1'; } catch (e) { aceito = false; }
+    if (aceito) return;
+
+    bar.hidden = false;
+    btn.addEventListener('click', () => {
+        bar.hidden = true;
+        try { localStorage.setItem('duas_cookies_ok', '1'); } catch (e) { /* modo privado */ }
+    });
+}
+
+/**
+ * Preenche o endereço a partir do CEP (ViaCEP), para reduzir erro de digitação
+ */
+function initCepLookup() {
+    const cep = document.getElementById('ckCep');
+    if (!cep) return;
+
+    cep.addEventListener('blur', async () => {
+        const digits = (cep.value || '').replace(/\D/g, '');
+        if (digits.length !== 8) return;
+        try {
+            const r = await fetch('https://viacep.com.br/ws/' + digits + '/json/');
+            const d = await r.json();
+            if (d.erro) return;
+            const set = (id, val) => {
+                const el = document.getElementById(id);
+                if (el && !el.value && val) el.value = val;
+            };
+            set('ckStreet', d.logradouro);
+            set('ckDistrict', d.bairro);
+            set('ckCity', d.localidade);
+            set('ckState', d.uf);
+        } catch (e) { /* offline ou CEP inexistente: o cliente preenche à mão */ }
+    });
+}
 
 /**
  * Menu "Todos os Departamentos" da home
@@ -329,28 +375,6 @@ function initPDPControls() {
                     </div>
                 `;
             }
-        });
-    }
-}
-
-/**
- * Search Modal Toggle
- */
-function initSearchModal() {
-    const modal = document.getElementById('searchModal');
-    const openBtn = document.getElementById('searchOpenBtn');
-    const closeBtn = document.getElementById('searchCloseBtn');
-
-    if (openBtn && modal) {
-        openBtn.addEventListener('click', () => {
-            modal.classList.add('active');
-            modal.querySelector('input')?.focus();
-        });
-    }
-
-    if (closeBtn && modal) {
-        closeBtn.addEventListener('click', () => {
-            modal.classList.remove('active');
         });
     }
 }

@@ -3,6 +3,11 @@
 --
 -- Cria as 17 tabelas + configuracao inicial + usuario do painel.
 --
+-- QUAL ARQUIVO USAR:
+--   duas-banco.sql      -> banco novo, vazio (primeira instalacao). ESTE.
+--   duas-atualizar.sql  -> banco que ja existe, antes de subir nova versao.
+--   duas-dados-fake.sql -> dados de demonstracao (nunca em producao real).
+--
 -- COMO IMPORTAR NO phpMyAdmin:
 --   1. selecione o banco na lista da esquerda
 --   2. aba Importar -> escolher este arquivo -> Executar
@@ -19,6 +24,7 @@
 SET NAMES utf8mb4;
 
 -- ---------- ESTRUTURA ----------
+
 
 CREATE TABLE IF NOT EXISTS `products` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -198,8 +204,18 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `cancelled_at` datetime DEFAULT NULL,
   `customer_name` varchar(160) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `customer_email` varchar(190) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `customer_phone` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `customer_doc` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `shipping_address` varchar(400) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipping_cep` varchar(12) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipping_street` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipping_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipping_complement` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipping_district` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipping_city` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipping_state` varchar(2) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `consent_at` datetime DEFAULT NULL,
+  `consent_ip` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `subtotal` decimal(10,2) NOT NULL DEFAULT '0.00',
   `discount` decimal(10,2) NOT NULL DEFAULT '0.00',
   `shipping` decimal(10,2) NOT NULL DEFAULT '0.00',
@@ -277,6 +293,8 @@ CREATE TABLE IF NOT EXISTS `order_events` (
   CONSTRAINT `fk_order_events_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+
 -- ---------- CONFIGURACAO INICIAL ----------
 
 INSERT INTO `payment_methods` (`provider`,`label`,`environment`,`credentials`,`instructions`,`is_active`,`sort_order`)
@@ -297,7 +315,7 @@ WHERE NOT EXISTS (SELECT 1 FROM `free_shipping_rules` WHERE `label` = 'Frete gr�
 
 INSERT INTO `site_settings` (`setting_key`,`setting_value`) VALUES ('announcement_active', '1')
 ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
-INSERT INTO `site_settings` (`setting_key`,`setting_value`) VALUES ('announcement_text', 'COLEÇÃO PRIMAVERA/VERÃO • FRETE GRÁTIS EM COMPRAS ACIMA DE R$ 300,00')
+INSERT INTO `site_settings` (`setting_key`,`setting_value`) VALUES ('announcement_text', 'COLEÇÃO PRIMAVERA/VERÃO • FRETE GRÁTIS EM COMPRAS ACIMA DE R$ 800,00 • ATÉ 6X SEM JUROS')
 ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
 
 INSERT INTO `promotions` (`name`,`code`,`discount_type`,`discount_value`,`min_subtotal`,`starts_at`,`ends_at`,`usage_limit`,`is_active`)

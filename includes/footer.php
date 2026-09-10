@@ -57,11 +57,11 @@
             <div>
                 <h4 class="footer-title">Serviços ao Cliente</h4>
                 <div class="footer-links">
-                    <a href="conta.php">Minha Conta</a>
-                    <a href="conta.php">Rastreie Seu Pedido</a>
+                    <a href="contato.php">Acompanhar Pedido</a>
                     <a href="contato.php">Trocas e Devoluções</a>
                     <a href="contato.php">Perguntas Frequentes</a>
-                    <a href="contato.php">Política de Privacidade</a>
+                    <a href="politica-privacidade.php">Política de Privacidade</a>
+                    <a href="politica-privacidade.php#cookies">Cookies e LGPD</a>
                 </div>
             </div>
 
@@ -138,6 +138,16 @@
             <strong>Dica de Vestibilidade:</strong> Se você prefere um caimento mais solto (oversized) como os de nossos desfiles, recomendamos escolher o tamanho acima do habitual.
         </div>
     </div>
+</div>
+
+<!-- Aviso de cookies (LGPD) -->
+<div class="cookie-bar" id="cookieBar" hidden>
+    <p>
+        Usamos apenas cookies necessários para manter seu carrinho enquanto você navega.
+        Não fazemos rastreamento publicitário. Saiba mais na
+        <a href="politica-privacidade.php">Política de Privacidade</a>.
+    </p>
+    <button type="button" class="btn btn-primary btn-sm" id="cookieAccept">Entendi</button>
 </div>
 
 <script src="js/app.js"></script>

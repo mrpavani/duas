@@ -54,24 +54,8 @@ $announcementOn = get_setting('announcement_active', '1') === '1' && $announceme
             <a href="contato.php" class="nav-link <?php echo $current_page == 'contato.php' ? 'active' : ''; ?>">Contato</a>
         </nav>
 
-        <!-- Header Actions / Icons (Right / Third in Desktop Layout) -->
+        <!-- Header Actions (Right / Third in Desktop Layout) -->
         <div class="header-actions">
-            <!-- Search Button -->
-            <button class="icon-btn" id="searchOpenBtn" aria-label="Buscar produtos">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-            </button>
-
-            <!-- Customer Account Link -->
-            <a href="conta.php" class="icon-btn" title="Minha Conta / Pedidos">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-            </a>
-
             <!-- Cart Drawer Trigger Button -->
             <button class="icon-btn js-open-cart" aria-label="Sacola de compras">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -84,25 +68,6 @@ $announcementOn = get_setting('announcement_active', '1') === '1' && $announceme
         </div>
     </div>
 </header>
-
-<!-- Expansible Search Modal -->
-<div class="search-modal" id="searchModal">
-    <div class="container">
-        <form action="pecas.php" method="GET" class="search-form">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" name="busca" class="search-input" placeholder="O que você está procurando? (ex: Vestido, Linho, Blazer)" autocomplete="off">
-            <button type="button" class="icon-btn" id="searchCloseBtn" aria-label="Fechar busca">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
-        </form>
-    </div>
-</div>
 
 <!-- Mobile Navigation Drawer -->
 <div class="mobile-nav-overlay" id="mobileNavOverlay"></div>
@@ -122,6 +87,5 @@ $announcementOn = get_setting('announcement_active', '1') === '1' && $announceme
         <a href="quem-somos.php" class="nav-link">Quem Somos</a>
         <a href="blog.php" class="nav-link">Blog & Editorial</a>
         <a href="contato.php" class="nav-link">Atendimento & Contato</a>
-        <a href="conta.php" class="nav-link">Minha Conta & Pedidos</a>
     </div>
 </div>
