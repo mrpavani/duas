@@ -226,6 +226,10 @@ form.inline { display: inline-flex; align-items: center; }
 .pay-errors { background: #fbe9e7; border: 1px solid #f3c9c4; color: var(--a-danger); padding: 12px 14px; border-radius: var(--a-radius); margin-bottom: 12px; font-size: 0.85rem; }
 .pay-errors ul { margin: 6px 0 0; padding-left: 18px; }
 
+/* Aviso ao liberar separação de um pedido sem pagamento aprovado. */
+.pay-warning { display: flex; align-items: flex-start; gap: 8px; background: #fff3d6; color: #8a5a00; border: 1px solid #f0dcae; padding: 10px 12px; border-radius: var(--a-radius); font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px; }
+.pay-warning .ic { flex: none; margin-top: 2px; }
+
 .raw-json { background: #1e1e1e; color: #e6e6e6; padding: 14px; border-radius: var(--a-radius); overflow-x: auto; font-size: 0.75rem; line-height: 1.5; margin-top: 8px; max-height: 420px; }
 
 .steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 16px; }

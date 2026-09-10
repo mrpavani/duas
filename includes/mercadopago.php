@@ -112,9 +112,49 @@ function mp_api(string $method, string $path, ?array $body, string $token, array
     if (!is_array($data)) $data = ['raw' => $raw];
 
     $ok = $status >= 200 && $status < 300;
-    $error = $ok ? null : ($data['message'] ?? ('Erro HTTP ' . $status . ' do Mercado Pago.'));
+    $error = $ok ? null : mp_api_error_message($status, $data);
 
     return ['ok' => $ok, 'status' => $status, 'data' => $data, 'error' => $error];
+}
+
+/**
+ * Traduz o erro cru da API do Mercado Pago (que vem em inglês) para uma
+ * mensagem que a lojista entenda, dizendo o que fazer a respeito.
+ */
+function mp_api_error_message(int $status, array $data): string
+{
+    $bruto = trim((string) ($data['message'] ?? ''));
+
+    // Mensagens conhecidas da API, comparadas sem diferenciar maiúsculas.
+    $conhecidas = [
+        'payment not found'  => 'Pagamento não encontrado no Mercado Pago. Verifique se o ID está correto ou se ele pertence a outra conta (produção x sandbox).',
+        'resource not found' => 'O Mercado Pago não encontrou este registro.',
+        'invalid_token'      => 'As credenciais do Mercado Pago são inválidas. Revise o access token em "Meios de pagamento".',
+        'invalid access token' => 'As credenciais do Mercado Pago são inválidas. Revise o access token em "Meios de pagamento".',
+    ];
+    $chave = mb_strtolower($bruto);
+    if (isset($conhecidas[$chave])) {
+        return $conhecidas[$chave];
+    }
+
+    // Sem mensagem conhecida, o código HTTP já diz bastante.
+    $porStatus = [
+        400 => 'O Mercado Pago recusou os dados enviados.',
+        401 => 'Credenciais do Mercado Pago inválidas ou expiradas. Revise o access token em "Meios de pagamento".',
+        403 => 'A conta do Mercado Pago não tem permissão para esta operação.',
+        404 => 'Registro não encontrado no Mercado Pago.',
+        429 => 'Muitas requisições seguidas ao Mercado Pago. Aguarde alguns instantes e tente de novo.',
+    ];
+    $base = $porStatus[$status]
+        ?? ($status >= 500
+            ? 'O Mercado Pago está instável neste momento. Aguarde alguns instantes e tente novamente.'
+            : 'Erro HTTP ' . $status . ' do Mercado Pago.');
+
+    // Preserva o texto original entre parênteses: ajuda a diagnosticar sem
+    // deixar a tela em inglês.
+    return $bruto !== '' && mb_strtolower($base) !== $chave
+        ? $base . ' (retorno: ' . $bruto . ')'
+        : $base;
 }
 
 /**

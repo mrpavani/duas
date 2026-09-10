@@ -1280,6 +1280,74 @@ h4 {
 }
 
 /* --------------------------------------------------------------------------
+   Checkout em etapas
+   -------------------------------------------------------------------------- */
+.ck-stepper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    list-style: none;
+    margin: 0 0 28px;
+    padding: 0 0 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.ck-stepper li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    color: var(--color-text-muted);
+}
+
+.ck-stepper .ck-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex: none;
+}
+
+.ck-stepper li.is-current { color: var(--color-primary); font-weight: 600; }
+.ck-stepper li.is-current .ck-num {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #FFFFFF;
+}
+
+.ck-stepper li.is-done { color: var(--color-accent); }
+.ck-stepper li.is-done .ck-num {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.ck-step-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 28px;
+}
+
+/* O botão que avança ocupa a linha toda quando é o único da etapa. */
+.ck-step-nav .btn-lg { flex: 1; }
+.ck-step-nav .btn-outline { flex: none; }
+
+.ck-recap {
+    background-color: var(--color-bg-neutral);
+    border-left: 3px solid var(--color-accent);
+    padding: 12px 14px;
+    font-size: 0.88rem;
+    margin-bottom: 20px;
+}
+
+/* --------------------------------------------------------------------------
    Checkout - dados do cliente
    -------------------------------------------------------------------------- */
 .ck-grid {

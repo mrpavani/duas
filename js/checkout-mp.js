@@ -105,18 +105,24 @@
         var btn = document.getElementById('mpSubmitBtn');
         if (btn) { btn.disabled = true; btn.textContent = 'Processando pagamento...'; }
 
-        var parts = (form.querySelector('[name="mp_card_exp"]').value || '').replace(/\s/g, '').split('/');
+        var val = function (name) {
+            var el = form.querySelector('[name="' + name + '"]');
+            return el ? el.value : '';
+        };
+
+        var parts = val('mp_card_exp').replace(/\s/g, '').split('/');
         var year = parts[1] || '';
         if (year.length === 2) year = '20' + year;
 
         mp.createCardToken({
             cardNumber: num.value.replace(/\D/g, ''),
-            cardholderName: form.querySelector('[name="mp_card_name"]').value,
+            cardholderName: val('mp_card_name'),
             cardExpirationMonth: parts[0] || '',
             cardExpirationYear: year,
-            securityCode: form.querySelector('[name="mp_card_cvv"]').value,
+            securityCode: val('mp_card_cvv'),
             identificationType: 'CPF',
-            identificationNumber: (form.querySelector('[name="mp_card_doc"]').value || '').replace(/\D/g, '')
+            // O CPF do titular é o mesmo já informado em "Seus dados".
+            identificationNumber: val('cust_doc').replace(/\D/g, '')
         }).then(function (token) {
             form.querySelector('[name="mp_token"]').value = token.id;
             if (!pmId.value && token.payment_method_id) pmId.value = token.payment_method_id;

@@ -141,7 +141,17 @@ if ($id) {
     $events = get_order_events($id);
     $raw = $order['payment_raw'] ? json_decode((string) $order['payment_raw'], true) : null;
     $friendly = mp_friendly($order['payment_status'], $order['payment_status_detail']);
-    $payErrors = $raw ? mp_error_messages($raw) : ($friendly['tone'] === 'error' ? [$friendly['message']] : []);
+    // A lista de erros segue o status ATUAL do pedido: um ajuste manual para
+    // "aprovado" nao pode seguir exibindo a recusa antiga guardada no JSON.
+    // E a recusa em si ja aparece no bloco acima, entao a lista so entra
+    // quando o Mercado Pago devolveu algo a mais (causas de erro da API).
+    $payErrors = [];
+    if ($friendly['tone'] === 'error' && $raw) {
+        $payErrors = array_values(array_filter(
+            mp_error_messages($raw),
+            fn($m) => $m !== $friendly['message']
+        ));
+    }
 
     // próxima etapa possível
     $curIdx = array_search($order['fulfillment_status'], FULFILLMENT_FLOW, true);
@@ -271,8 +281,24 @@ if ($id) {
                     <?php endforeach; ?>
                 </div>
 
+                <?php
+                // O servidor recusa avancar a separacao sem pagamento aprovado,
+                // entao o botao nao pode aparecer nesse caso: seria um beco sem
+                // saida. O caminho para receber por fora e o ajuste manual acima.
+                $pagamentoAprovado = $order['payment_status'] === 'approved';
+                $podeAvancar = $nextStep
+                    && $order['fulfillment_status'] !== 'cancelado'
+                    && $pagamentoAprovado;
+                ?>
+                <?php if ($nextStep && $order['fulfillment_status'] !== 'cancelado' && !$pagamentoAprovado): ?>
+                    <p class="pay-warning"><?php echo ic('alert', 14); ?>
+                        <span>A separação só é liberada com o pagamento aprovado.
+                        Se o cliente pagou por outro meio, registre em
+                        <strong>Pagamento &rarr; Ajuste manual de pagamento</strong> e a etapa fica disponível.</span></p>
+                <?php endif; ?>
+
                 <div class="form-actions" style="flex-wrap:wrap;">
-                    <?php if ($nextStep && $order['fulfillment_status'] !== 'cancelado'): ?>
+                    <?php if ($podeAvancar): ?>
                         <form method="post" class="inline">
                             <?php echo csrf_field(); ?>
                             <input type="hidden" name="op" value="advance_fulfillment">

@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCarousels();
     initCookieBar();
     initCepLookup();
+    initCheckoutSteps();
 });
 
 /**
@@ -59,6 +60,81 @@ function initCepLookup() {
             set('ckState', d.uf);
         } catch (e) { /* offline ou CEP inexistente: o cliente preenche à mão */ }
     });
+}
+
+/**
+ * Checkout em etapas: dados -> forma de pagamento -> confirmar e pagar.
+ *
+ * As três etapas vivem no mesmo <form> e são apenas mostradas/escondidas, então
+ * o envio continua sendo um único POST e a tokenização do cartão não muda.
+ * Sem JavaScript as três aparecem abertas e o formulário segue funcionando.
+ */
+function initCheckoutSteps() {
+    const form = document.getElementById('checkoutForm');
+    if (!form) return;
+
+    const steps = Array.from(form.querySelectorAll('.ck-step'));
+    const marks = Array.from(document.querySelectorAll('#ckStepper li'));
+    const recap = document.getElementById('ckRecap');
+    if (steps.length < 2) return;
+
+    let atual = 0;
+
+    function mostrar(indice, rolar) {
+        atual = Math.max(0, Math.min(indice, steps.length - 1));
+        steps.forEach((s, i) => { s.hidden = i !== atual; });
+        marks.forEach((m, i) => {
+            m.classList.toggle('is-current', i === atual);
+            m.classList.toggle('is-done', i < atual);
+        });
+        if (atual === steps.length - 1) atualizarResumo();
+        if (rolar) {
+            const topo = document.getElementById('ckStepper') || form;
+            topo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // Mostra na última etapa qual forma de pagamento foi escolhida.
+    function atualizarResumo() {
+        if (!recap) return;
+        const escolhido = form.querySelector('input[name="mp_type"]:checked');
+        if (!escolhido) { recap.hidden = true; return; }
+        const nome = escolhido.closest('.mp-type').querySelector('.mp-type-name');
+        recap.innerHTML = 'Forma de pagamento: <strong>' +
+            (nome ? nome.textContent.trim() : '') + '</strong>';
+        recap.hidden = false;
+    }
+
+    // Só avança com os campos da etapa atual preenchidos corretamente. O
+    // servidor valida de novo — isto é só para não descobrir o erro no fim.
+    function etapaValida() {
+        const campos = steps[atual].querySelectorAll('input, select, textarea');
+        for (const campo of campos) {
+            if (campo.disabled || campo.type === 'hidden') continue;
+            if (!campo.checkValidity()) {
+                campo.reportValidity();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    form.querySelectorAll('[data-goto]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const destino = parseInt(btn.dataset.goto, 10) - 1;
+            if (destino > atual && !etapaValida()) return;
+            mostrar(destino, true);
+        });
+    });
+
+    // Trocar a forma de pagamento na etapa 2 atualiza o resumo da etapa 3.
+    form.querySelectorAll('input[name="mp_type"]').forEach((r) => {
+        r.addEventListener('change', atualizarResumo);
+    });
+
+    // Depois de um erro do servidor, reabre direto na etapa que precisa de ajuste.
+    const inicial = parseInt(form.dataset.startStep || '1', 10) - 1;
+    mostrar(isNaN(inicial) ? 0 : inicial, false);
 }
 
 /**

@@ -138,6 +138,11 @@ if (isset($_POST['place_order']) && !empty($cartItems)) {
     if (empty($_POST['lgpd_consent']))                              $formErros[] = 'É necessário aceitar a Política de Privacidade para concluir a compra.';
 }
 
+// Em qual etapa do checkout a página deve reabrir depois de um erro do servidor:
+// erro de cadastro volta para a etapa 1; só o aceite pendente fica na última.
+$errosDeDados = array_filter($formErros, fn($e) => !str_contains($e, 'Política de Privacidade'));
+$stepInicial  = $errosDeDados ? 1 : ($formErros ? 3 : 1);
+
 if (isset($_POST['place_order']) && !empty($cartItems) && !$formErros) {
     $customer = $form;
     $mpType = trim($_POST['mp_type'] ?? '');
@@ -468,7 +473,16 @@ function render_result_card(string $tone, string $title, string $message, array 
                         </div>
                     <?php endif; ?>
 
-                    <form action="carrinho.php" method="POST" id="checkoutForm">
+                    <ol class="ck-stepper" id="ckStepper">
+                        <li data-for="1"><span class="ck-num">1</span> Seus dados</li>
+                        <li data-for="2"><span class="ck-num">2</span> Forma de pagamento</li>
+                        <li data-for="3"><span class="ck-num">3</span> Confirmar e pagar</li>
+                    </ol>
+
+                    <form action="carrinho.php" method="POST" id="checkoutForm" data-start-step="<?php echo (int) $stepInicial; ?>">
+
+                    <!-- ===== Etapa 1: dados do cliente e entrega ===== -->
+                    <section class="ck-step" data-step="1">
                         <h3 style="font-size: 1.2rem; margin-bottom: 6px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Seus Dados</h3>
                         <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-bottom: 16px;">
                             Pedimos estes dados a cada compra &mdash; a loja não guarda cadastro nem senha.
@@ -527,10 +541,16 @@ function render_result_card(string $tone, string $title, string $message, array 
                             </div>
                         </div>
 
-                        <h3 style="font-size: 1.2rem; margin: 28px 0 16px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Pagamento</h3>
+                        <div class="ck-step-nav">
+                            <button type="button" class="btn btn-primary btn-lg" data-goto="2">Continuar para pagamento</button>
+                        </div>
+                    </section>
+
+                    <!-- ===== Etapa 2: escolha da forma de pagamento ===== -->
+                    <section class="ck-step" data-step="2">
+                        <h3 style="font-size: 1.2rem; margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Forma de Pagamento</h3>
 
                         <div class="mp-pay" style="margin-bottom: 24px;">
-                            <label style="display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 8px;">Forma de Pagamento</label>
 
                             <?php if (mp_is_ready() && $mpTypes): ?>
                                 <p style="font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 10px;">Pagamento processado pelo Mercado Pago. Apenas as opções abaixo estão disponíveis para esta loja.</p>
@@ -550,6 +570,23 @@ function render_result_card(string $tone, string $title, string $message, array 
                                         </label>
                                         <?php $first = false; endforeach; ?>
                                 </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="ck-step-nav">
+                            <button type="button" class="btn btn-outline" data-goto="1">Voltar</button>
+                            <button type="button" class="btn btn-primary btn-lg" data-goto="3">Continuar</button>
+                        </div>
+                    </section>
+
+                    <!-- ===== Etapa 3: dados do pagamento e confirmacao ===== -->
+                    <section class="ck-step" data-step="3">
+                        <h3 style="font-size: 1.2rem; margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">Confirmar e Pagar</h3>
+
+                        <p class="ck-recap" id="ckRecap" hidden></p>
+
+                        <div class="mp-pay" style="margin-bottom: 24px;">
+                            <?php if (mp_is_ready() && $mpTypes): ?>
 
                                 <!-- Cartão (crédito / débito / pré-pago) -->
                                 <?php if (array_intersect(MP_CARD_TYPES, array_keys($mpTypes))): ?>
@@ -588,7 +625,7 @@ function render_result_card(string $tone, string $title, string $message, array 
                                 <?php if (isset($mpTypes['bank_transfer'])): ?>
                                     <div class="mp-fields" data-type="bank_transfer" hidden>
                                         <p style="font-size: 0.82rem; color: var(--color-text-muted);">
-                                            Usamos os dados que você preencheu acima para gerar a cobrança.
+                                            Usamos os dados que você informou na etapa 1 para gerar a cobrança.
                                             Ao finalizar, aparece o <strong>QR Code Pix</strong>; o pedido é liberado assim que o pagamento é compensado.
                                         </p>
                                     </div>
@@ -600,7 +637,7 @@ function render_result_card(string $tone, string $title, string $message, array 
                                     <div class="mp-fields" data-type="<?php echo $boletoType; ?>" hidden>
                                         <input type="hidden" name="mp_bol_method" value="<?php echo htmlspecialchars($mpTypes[$boletoType][0]['id'] ?? 'bolbradesco'); ?>">
                                         <p style="font-size: 0.82rem; color: var(--color-text-muted);">
-                                            O boleto é emitido com o nome, CPF e endereço preenchidos acima.
+                                            O boleto é emitido com o nome, CPF e endereço informados na etapa 1.
                                             A compensação leva até 2 dias úteis e o pedido é liberado após o pagamento.
                                         </p>
                                     </div>
@@ -631,9 +668,14 @@ function render_result_card(string $tone, string $title, string $message, array 
                         </div>
 
                         <input type="hidden" name="place_order" value="1">
-                        <button type="submit" class="btn btn-primary btn-full btn-lg" id="mpSubmitBtn">
-                            Concluir e Pagar R$ <?php echo number_format($grandTotal, 2, ',', '.'); ?>
-                        </button>
+
+                        <div class="ck-step-nav">
+                            <button type="button" class="btn btn-outline" data-goto="2">Voltar</button>
+                            <button type="submit" class="btn btn-primary btn-lg" id="mpSubmitBtn">
+                                Pagar R$ <?php echo number_format($grandTotal, 2, ',', '.'); ?>
+                            </button>
+                        </div>
+                    </section>
                     </form>
                 </div>
 
@@ -695,7 +737,7 @@ function render_result_card(string $tone, string $title, string $message, array 
             publicKey: <?php echo json_encode($mpCfg['public_key'] ?? ''); ?>,
             amount: <?php echo json_encode(round((float) $grandTotal, 2)); ?>,
             cardTypes: <?php echo json_encode(MP_CARD_TYPES); ?>,
-            submitLabel: <?php echo json_encode('Concluir e Pagar R$ ' . number_format($grandTotal, 2, ',', '.')); ?>
+            submitLabel: <?php echo json_encode('Pagar R$ ' . number_format($grandTotal, 2, ',', '.')); ?>
         };
     </script>
     <script src="js/checkout-mp.js"></script>

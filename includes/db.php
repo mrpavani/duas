@@ -1,11 +1,17 @@
 <?php
 // ==========================================================================
 // DUÁS - CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS (MySQL / PDO)
-// Schema: sql/producao/01-estrutura.sql
+// Schema: sql/duas-banco.sql
 //
 // As credenciais vêm de includes/config.php (não versionado) ou das variáveis
 // de ambiente DUAS_DB_HOST / DUAS_DB_NAME / DUAS_DB_USER / DUAS_DB_PASS.
 // ==========================================================================
+
+// Fuso horário da loja. Sem isto o PHP assume UTC e grava datas 3 horas à
+// frente das que o MySQL escreve com NOW() — no mesmo pedido, a data da
+// separação sairia diferente da data do evento no histórico.
+// Este arquivo é a raiz comum da loja, do painel e dos scripts de bin/.
+date_default_timezone_set('America/Sao_Paulo');
 
 /**
  * Configuração do ambiente.
