@@ -177,21 +177,3 @@ function apply_mp_payment_to_order(array $order, array $payment): array
     return ['payment_status' => $status, 'friendly' => $friendly, 'errors' => $errors];
 }
 
-/**
- * Marca um pagamento como aprovado de forma simulada (Mercado Pago não configurado).
- */
-function simulate_order_paid(array $order): void
-{
-    $pdo = db();
-    $orderId = (int) $order['id'];
-    $pdo->prepare("
-        UPDATE orders
-           SET payment_status = 'approved', payment_status_detail = 'simulado',
-               status = 'Pagamento aprovado (simulado)', paid_at = NOW(),
-               fulfillment_status = IF(fulfillment_status = 'aguardando_pagamento', 'a_separar', fulfillment_status)
-         WHERE id = ?
-    ")->execute([$orderId]);
-    order_log($orderId, 'payment', $order['payment_status'], 'approved',
-        'Pagamento aprovado em modo simulado (Mercado Pago sem credenciais cadastradas).');
-    order_log($orderId, 'fulfillment', 'aguardando_pagamento', 'a_separar', 'Separação liberada.');
-}

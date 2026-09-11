@@ -7,23 +7,41 @@ require_once __DIR__ . '/includes/header.php';
 
     <!-- Intro Editorial -->
     <div class="qs-intro">
-        <h1>A Essência da Elegância Intencional.</h1>
-        <p>Fundada pela sinergia criativa de Larissa e Letícia, Duás acredita que a moda vai muito além da estética &mdash; ela é uma forma de expressão, identidade e conexão. Por isso, cada peça da nossa marca é escolhida com muito cuidado, pensando na qualidade, no conforto e na mensagem que queremos transmitir.</p>
+        <h1>Sobre nossa marca</h1>
+        <p>A nossa amizade começou em agosto de 2024, quando iniciamos o curso de moda na FAAP. Desde então, começamos a idealizar a nossa marca, unindo não só o nosso amor pela moda, mas também o desejo em comum de construir algo que fosse verdadeiramente nosso. Sempre foi um sonho das duas ter o próprio negócio, e foi na troca de ideias, inspirações e experiências que esse sonho começou a ganhar forma.</p>
     </div>
 
     <!-- Imagem Principal -->
-    <img src="img/qs-imagem-principal.png" alt="Larissa e Letícia na boutique Duás" class="qs-hero-img">
+    <img src="img/qs-imagem-principal.png" alt="Letícia e Larissa na boutique Duás" class="qs-hero-img">
 
-    <!-- O Encontro de Duas Visões -->
-    <section class="qs-vision">
-        <div class="qs-vision-text">
-            <h2>O Encontro de Duas Visões</h2>
-            <p>A nossa conexão vai além da amizade: ela está presente em tudo o que criamos. Existe uma leveza no nosso trabalho que vem justamente dessa sintonia, desse respeito e do carinho que temos uma pela outra. É isso que torna cada escolha mais especial e cada etapa mais significativa.</p>
-            <p>Temos um olhar atento para cada detalhe, desde a seleção das peças até os acabamentos e elementos que tornam cada item único. Tudo é feito com carinho, intenção e sensibilidade, para que cada cliente sinta isso ao receber e usar nossas peças.</p>
+    <!-- Letícia -->
+    <section class="qs-founder">
+        <img src="img/qs-imagem-1.png" alt="Letícia, cofundadora da Duás">
+        <div class="qs-founder-text">
+            <span class="qs-founder-role">Cofundadora</span>
+            <h2>Letícia</h2>
+            <p>Meu nome é Letícia Rodrigues Jacinto, tenho 22 anos e sou de Muriaé, interior de Minas Gerais. Desde muito cedo, a moda sempre fez parte da minha vida, não apenas como forma de me vestir, mas como uma maneira de expressar quem eu sou. Sempre tive um olhar atento para tendências, novidades e detalhes que fazem a diferença.</p>
+            <p>Sou movida por grandes sonhos e por uma vontade constante de ir além. Tenho uma mentalidade que acredita no crescimento, na evolução e nas possibilidades. Acredito, de forma genuína, que com dedicação, propósito e consistência, é possível alcançar tudo aquilo que se deseja!</p>
         </div>
-        <div class="qs-duo">
-            <img src="img/qs-imagem-1.png" alt="Detalhe de estilo Duás &mdash; lenço de seda estampado">
-            <img src="img/qs-imagem-2.png" alt="Detalhe de estilo Duás &mdash; alfaiataria e correntes douradas">
+    </section>
+
+    <!-- O que as une: fica entre as duas, porque é a voz das duas juntas -->
+    <section class="qs-creed">
+        <span class="qs-creed-rule" aria-hidden="true"></span>
+        <h2>Moda é expressão, identidade e conexão</h2>
+        <p>Acreditamos que a moda vai muito além da estética, ela é uma forma de expressão, identidade e conexão. Por isso, cada peça da nossa marca é escolhida com muito cuidado, pensando na qualidade, no conforto e na mensagem que queremos transmitir.</p>
+        <p>Temos um olhar atento para cada detalhe, desde a seleção das peças até os acabamentos e elementos que tornam cada item único. Tudo é feito com carinho, intenção e sensibilidade, para que cada cliente sinta isso ao receber e usar nossas peças.</p>
+        <span class="qs-creed-rule" aria-hidden="true"></span>
+    </section>
+
+    <!-- Larissa -->
+    <section class="qs-founder qs-founder-flip">
+        <img src="img/qs-imagem-2.png" alt="Larissa, cofundadora da Duás">
+        <div class="qs-founder-text">
+            <span class="qs-founder-role">Cofundadora</span>
+            <h2>Larissa</h2>
+            <p>Eu sou a Larissa, tenho 23 anos e sempre carreguei comigo o sonho de trabalhar com moda e construir a minha própria marca. Desde cedo, encontrei na moda uma forma de me expressar e dar vida às minhas ideias.</p>
+            <p>Acredito que a moda vai muito além do vestir, é uma extensão da identidade e uma forma de contar histórias. Por isso, cada peça escolhida carrega intenção, cuidado e um pouco do meu universo, conectando diferentes inspirações em uma seleção única.</p>
         </div>
     </section>
 
@@ -35,7 +53,6 @@ require_once __DIR__ . '/includes/header.php';
         <div class="qs-quote-inner">
             <span class="qs-quote-mark" aria-hidden="true">99</span>
             <p>Nossa essência está na delicadeza dos detalhes e no cuidado em cada escolha. Queremos que cada pessoa que use nossas peças se sinta especial, confiante e representada.</p>
-            <p>Essa marca é mais do que um projeto: é a materialização de uma amizade verdadeira e de um sonho construído a quatro mãos, com dedicação, afeto e propósito.</p>
             <span class="qs-quote-author">&mdash; Larissa &amp; Leticia</span>
         </div>
     </div>

@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCookieBar();
     initCepLookup();
     initCheckoutSteps();
+    initImageFallback();
 });
 
 /**
@@ -33,6 +34,32 @@ function initCookieBar() {
     btn.addEventListener('click', () => {
         bar.hidden = true;
         try { localStorage.setItem('duas_cookies_ok', '1'); } catch (e) { /* modo privado */ }
+    });
+}
+
+/**
+ * Troca qualquer imagem que falhe ao carregar pelo placeholder da marca.
+ *
+ * As fotos do catálogo são URLs externas: se uma sair do ar, o cliente veria
+ * o ícone de imagem quebrada do navegador no meio da vitrine. O evento error
+ * de <img> não borbulha, por isso o listener usa a fase de captura; e como o
+ * app.js roda no fim do <body>, ainda varremos as que já falharam antes dele.
+ */
+function initImageFallback() {
+    const PLACEHOLDER = 'img/placeholder.svg';
+
+    const aplicar = (img) => {
+        if (img.dataset.imgFallback) return; // não reentra se o placeholder falhar
+        img.dataset.imgFallback = '1';
+        img.src = PLACEHOLDER;
+    };
+
+    document.addEventListener('error', (e) => {
+        if (e.target instanceof HTMLImageElement) aplicar(e.target);
+    }, true);
+
+    document.querySelectorAll('img').forEach((img) => {
+        if (img.complete && img.naturalWidth === 0) aplicar(img);
     });
 }
 

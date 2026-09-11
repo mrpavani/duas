@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Imagem indisponível">
+  <rect width="600" height="800" fill="#F7F6F4"/>
+  <g fill="none" stroke="#E5E5E5" stroke-width="1">
+    <rect x="40" y="40" width="520" height="720"/>
+  </g>
+  <g transform="translate(300 372)">
+    <text text-anchor="middle" font-family="Georgia, 'Playfair Display', serif"
+          font-size="54" letter-spacing="10" fill="#121212">DUÁS</text>
+    <line x1="-34" y1="34" x2="34" y2="34" stroke="#A88B79" stroke-width="1"/>
+    <text text-anchor="middle" y="78" font-family="Helvetica, Arial, sans-serif"
+          font-size="17" letter-spacing="3" fill="#888888">IMAGEM INDISPONÍVEL</text>
+  </g>
+</svg>

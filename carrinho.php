@@ -61,6 +61,12 @@ foreach ($paymentMethods as $pm) {
 $mpTypes = mp_is_ready() ? mp_available_types() : [];
 $mpCfg   = mp_is_ready() ? mp_config() : null;
 
+// Sem credencial do Mercado Pago nao existe cobranca, entao a loja nao pode
+// aceitar o pedido. Havendo credencial mas sem a lista de meios (falha
+// momentanea da API), o cliente ainda paga pelo Checkout Pro e a compra segue.
+$lojaPodeCobrar = mp_is_ready();
+$escolheNaLoja  = $lojaPodeCobrar && !empty($mpTypes);
+
 /** "João da Silva Souza" => ["João", "da Silva Souza"] */
 function split_full_name(string $name): array
 {
@@ -109,6 +115,7 @@ $placedOrder = null;
 $checkoutError = null;
 
 $formErros = [];
+$formErrosPagamento = [];
 $form = [];
 
 if (isset($_POST['place_order']) && !empty($cartItems)) {
@@ -136,12 +143,28 @@ if (isset($_POST['place_order']) && !empty($cartItems)) {
     if ($form['city'] === '')                                       $formErros[] = 'Informe a cidade.';
     if (strlen($form['state']) !== 2)                               $formErros[] = 'Informe o estado (UF).';
     if (empty($_POST['lgpd_consent']))                              $formErros[] = 'É necessário aceitar a Política de Privacidade para concluir a compra.';
+
+    // A forma de pagamento e obrigatoria e precisa ser uma das oferecidas.
+    $mpTypeEscolhido = trim((string) ($_POST['mp_type'] ?? ''));
+    if (!$lojaPodeCobrar) {
+        $formErrosPagamento[] = 'A loja está temporariamente sem meio de pagamento disponível. Nenhuma cobrança foi feita — tente novamente mais tarde.';
+    } elseif ($escolheNaLoja && ($mpTypeEscolhido === '' || !isset($mpTypes[$mpTypeEscolhido]))) {
+        $formErrosPagamento[] = 'Escolha a forma de pagamento.';
+    }
+    $formErros = array_merge($formErros, $formErrosPagamento);
 }
 
 // Em qual etapa do checkout a página deve reabrir depois de um erro do servidor:
-// erro de cadastro volta para a etapa 1; só o aceite pendente fica na última.
-$errosDeDados = array_filter($formErros, fn($e) => !str_contains($e, 'Política de Privacidade'));
-$stepInicial  = $errosDeDados ? 1 : ($formErros ? 3 : 1);
+// dado de cadastro volta para a etapa 1, forma de pagamento para a 2 e o
+// aceite pendente fica na 3.
+$errosDeDados = array_filter(
+    $formErros,
+    fn($e) => !str_contains($e, 'Política de Privacidade') && !in_array($e, $formErrosPagamento, true)
+);
+$stepInicial = 1;
+if ($errosDeDados)              $stepInicial = 1;
+elseif ($formErrosPagamento)    $stepInicial = 2;
+elseif ($formErros)             $stepInicial = 3;
 
 if (isset($_POST['place_order']) && !empty($cartItems) && !$formErros) {
     $customer = $form;
@@ -294,7 +317,12 @@ if (isset($_POST['place_order']) && !empty($cartItems) && !$formErros) {
         order_log($oid, 'payment', 'pending', 'pending', 'Falha ao criar preferência: ' . $checkoutError, ['data' => $pref['data']]);
         $orderCompleted = true;
     } else {
-        simulate_order_paid($placedOrder);
+        // Sem meio de pagamento nao ha cobranca: o pedido JAMAIS pode ser dado
+        // como pago. Fica pendente e a loja e avisada pelo painel.
+        $checkoutError = 'Não foi possível iniciar o pagamento: a loja está sem meio de pagamento configurado. '
+            . 'Nenhuma cobrança foi feita e o pedido ficou pendente.';
+        order_log($oid, 'payment', 'pending', 'pending',
+            'Pedido recebido sem meio de pagamento configurado. Nenhuma cobranca foi criada.');
         $placedOrder = get_order($oid);
         $orderCompleted = true;
     }
@@ -552,13 +580,14 @@ function render_result_card(string $tone, string $title, string $message, array 
 
                         <div class="mp-pay" style="margin-bottom: 24px;">
 
-                            <?php if (mp_is_ready() && $mpTypes): ?>
-                                <p style="font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 10px;">Pagamento processado pelo Mercado Pago. Apenas as opções abaixo estão disponíveis para esta loja.</p>
+                            <?php if ($escolheNaLoja): ?>
+                                <p style="font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 10px;">Pagamento processado pelo Mercado Pago. Escolha abaixo como quer pagar.</p>
 
                                 <div class="mp-type-list">
-                                    <?php $first = true; foreach ($mpTypes as $type => $methods): ?>
+                                    <?php foreach ($mpTypes as $type => $methods): ?>
                                         <label class="mp-type">
-                                            <input type="radio" name="mp_type" value="<?php echo htmlspecialchars($type); ?>" <?php echo $first ? 'checked' : ''; ?>>
+                                            <?php // Nenhuma opcao vem marcada: a escolha tem de ser do cliente. ?>
+                                            <input type="radio" name="mp_type" value="<?php echo htmlspecialchars($type); ?>" required <?php echo ($_POST['mp_type'] ?? '') === $type ? 'checked' : ''; ?>>
                                             <span class="mp-type-name"><?php echo htmlspecialchars(mp_type_label($type)); ?></span>
                                             <span class="mp-type-brands">
                                                 <?php foreach (array_slice($methods, 0, 6) as $m): ?>
@@ -568,14 +597,23 @@ function render_result_card(string $tone, string $title, string $message, array 
                                                 <?php endforeach; ?>
                                             </span>
                                         </label>
-                                        <?php $first = false; endforeach; ?>
+                                        <?php endforeach; ?>
+                                </div>
+                            <?php elseif ($lojaPodeCobrar): ?>
+                                <p style="font-size: 0.82rem; color: var(--color-text-muted);">Você será direcionado ao ambiente seguro do <strong>Mercado Pago</strong> para escolher como pagar e concluir o pagamento.</p>
+                            <?php else: ?>
+                                <div class="checkout-erros" style="margin-bottom:0;">
+                                    <strong>Pagamento indisponível no momento</strong>
+                                    <p style="margin-top:6px;">A loja está sem meio de pagamento configurado, então não é possível concluir a compra agora. Seu carrinho continua salvo. Se preferir, fale com a gente pelo <a href="contato.php">contato</a>.</p>
                                 </div>
                             <?php endif; ?>
                         </div>
 
                         <div class="ck-step-nav">
                             <button type="button" class="btn btn-outline" data-goto="1">Voltar</button>
-                            <button type="button" class="btn btn-primary btn-lg" data-goto="3">Continuar</button>
+                            <?php if ($lojaPodeCobrar): ?>
+                                <button type="button" class="btn btn-primary btn-lg" data-goto="3">Continuar</button>
+                            <?php endif; ?>
                         </div>
                     </section>
 
@@ -586,7 +624,7 @@ function render_result_card(string $tone, string $title, string $message, array 
                         <p class="ck-recap" id="ckRecap" hidden></p>
 
                         <div class="mp-pay" style="margin-bottom: 24px;">
-                            <?php if (mp_is_ready() && $mpTypes): ?>
+                            <?php if ($escolheNaLoja): ?>
 
                                 <!-- Cartão (crédito / débito / pré-pago) -->
                                 <?php if (array_intersect(MP_CARD_TYPES, array_keys($mpTypes))): ?>
@@ -643,12 +681,6 @@ function render_result_card(string $tone, string $title, string $message, array 
                                     </div>
                                 <?php endif; ?>
 
-                            <?php elseif (mp_is_ready()): ?>
-                                <p style="font-size: 0.82rem; color: var(--color-text-muted);">Você será direcionado ao ambiente seguro do Mercado Pago para concluir o pagamento.</p>
-                            <?php elseif ($mpGateway): ?>
-                                <p style="font-size: 0.82rem; color: var(--color-text-muted);">Mercado Pago cadastrado sem credenciais &mdash; o pagamento será aprovado em <strong>modo de teste</strong>.</p>
-                            <?php else: ?>
-                                <p style="font-size: 0.85rem; color: var(--color-error);">Nenhum meio de pagamento ativo. Cadastre o Mercado Pago em <strong>/admin</strong>.</p>
                             <?php endif; ?>
                         </div>
 
@@ -671,9 +703,11 @@ function render_result_card(string $tone, string $title, string $message, array 
 
                         <div class="ck-step-nav">
                             <button type="button" class="btn btn-outline" data-goto="2">Voltar</button>
-                            <button type="submit" class="btn btn-primary btn-lg" id="mpSubmitBtn">
-                                Pagar R$ <?php echo number_format($grandTotal, 2, ',', '.'); ?>
-                            </button>
+                            <?php if ($lojaPodeCobrar): ?>
+                                <button type="submit" class="btn btn-primary btn-lg" id="mpSubmitBtn">
+                                    Pagar R$ <?php echo number_format($grandTotal, 2, ',', '.'); ?>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </section>
                     </form>
