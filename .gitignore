@@ -14,14 +14,10 @@ includes/config.*.php
 
 # --------------------------------------------------------------------------
 # CONTEÚDO ENVIADO PELO PAINEL
-# Fotos de produtos e capas de posts são criadas em produção. Versioná-las
-# faria o deploy sobrescrever o que a loja já tem no ar.
-# Os diretórios continuam existindo por causa dos .gitkeep.
 # --------------------------------------------------------------------------
-uploads/products/*
 uploads/blog/*
-!uploads/products/.gitkeep
 !uploads/blog/.gitkeep
+!uploads/products/.gitkeep
 
 # --------------------------------------------------------------------------
 # LOGS - a Hostinger cria error_log em cada pasta
