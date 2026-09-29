@@ -6,7 +6,24 @@ $pdo = db();
 $action = $_GET['action'] ?? 'list';
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
-const SIZES = ['P', 'M', 'G'];
+require_once __DIR__ . '/../includes/data.php';
+
+function get_product_active_sizes(): array
+{
+    $list = function_exists('get_active_sizes') ? get_active_sizes() : [];
+    if (!$list) {
+        $list = [
+            ['code' => 'PP', 'name' => 'Extra Pequeno (34)', 'busto_hint' => '80-84', 'cintura_hint' => '62-66', 'quadril_hint' => '90-94', 'comprimento_hint' => '110'],
+            ['code' => 'P', 'name' => 'Pequeno (36/38)', 'busto_hint' => '84-88', 'cintura_hint' => '66-70', 'quadril_hint' => '94-98', 'comprimento_hint' => '112'],
+            ['code' => 'M', 'name' => 'Médio (40)', 'busto_hint' => '90-94', 'cintura_hint' => '72-76', 'quadril_hint' => '100-104', 'comprimento_hint' => '113'],
+            ['code' => 'G', 'name' => 'Grande (42)', 'busto_hint' => '96-100', 'cintura_hint' => '78-82', 'quadril_hint' => '106-110', 'comprimento_hint' => '114'],
+            ['code' => 'GG', 'name' => 'Extra Grande (44)', 'busto_hint' => '102-106', 'cintura_hint' => '84-88', 'quadril_hint' => '112-116', 'comprimento_hint' => '115'],
+            ['code' => 'Extra G', 'name' => 'Extra Grande Especial (46)', 'busto_hint' => '108-112', 'cintura_hint' => '90-94', 'quadril_hint' => '118-122', 'comprimento_hint' => '116'],
+        ];
+    }
+    return $list;
+}
+
 const UPLOAD_DIR = __DIR__ . '/../uploads/products';
 const UPLOAD_WEB = 'uploads/products/';
 const MAX_IMG_BYTES = 3145728; // 3 MB
@@ -143,13 +160,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $care = trim((string) post('care_instructions', ''));
     $isNew = post('is_new_release') ? 1 : 0;
     $isActive = post('is_active') ? 1 : 0;
-    $chosenSizes = array_values(array_intersect(SIZES, (array) post('sizes', [])));
+
+    $activeSizesList = get_product_active_sizes();
+    $activeCodes = array_column($activeSizesList, 'code');
+    $chosenSizes = array_values(array_intersect($activeCodes, (array) post('sizes', [])));
+    $stockInput = (array) post('size_stock', []);
     $instagram = trim((string) post('instagram_url', ''));
 
-    // Medidas: 1 linha por tamanho (P/M/G) + observação
+    // Medidas: 1 linha por tamanho ativo + observação
     $mIn = (array) post('m', []);
     $mRows = [];
-    foreach (SIZES as $sz) {
+    foreach ($activeCodes as $sz) {
         $r = (array) ($mIn[$sz] ?? []);
         $line = [
             'busto'       => trim((string) ($r['busto'] ?? '')),
@@ -170,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($price === null || $price <= 0) $errors[] = 'Informe um preço válido.';
     if ($salePrice !== null && $price !== null && $salePrice >= $price) $errors[] = 'O preço promocional deve ser menor que o preço.';
     if ($saleStart && $saleEnd && $saleStart > $saleEnd) $errors[] = 'A data inicial da promoção é posterior à final.';
-    if (!$chosenSizes) $errors[] = 'Selecione ao menos um tamanho.';
+    if (!$chosenSizes) $errors[] = 'Selecione ao menos um tamanho e informe a quantidade disponível em estoque.';
     if ($instagram !== '' && !filter_var($instagram, FILTER_VALIDATE_URL)) $errors[] = 'O link do Instagram não é uma URL válida.';
 
     if ($errors) {
@@ -189,10 +210,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pid = (int) $pdo->lastInsertId();
     }
 
-    // sincroniza tamanhos
+    // sincroniza tamanhos e estoque por tamanho
     $pdo->prepare('DELETE FROM product_sizes WHERE product_id = ?')->execute([$pid]);
-    $insSize = $pdo->prepare('INSERT INTO product_sizes (product_id, size, position) VALUES (?, ?, ?)');
-    foreach ($chosenSizes as $p => $sz) $insSize->execute([$pid, $sz, $p]);
+    $insSize = $pdo->prepare('INSERT INTO product_sizes (product_id, size, stock, position) VALUES (?, ?, ?, ?)');
+    foreach ($chosenSizes as $p => $sz) {
+        $stk = max(0, (int) ($stockInput[$sz] ?? 0));
+        $insSize->execute([$pid, $sz, $stk, $p]);
+    }
 
     $uploaded = handle_uploads($pdo, $pid);
 
@@ -207,7 +231,9 @@ if ($action === 'new' || $action === 'edit') {
     $row = ['id'=>0,'name'=>'','slug'=>'','category'=>'','price'=>'','sale_price'=>'','sale_starts_at'=>null,
             'sale_ends_at'=>null,'description'=>'','composition'=>'','care_instructions'=>'','instagram_url'=>'',
             'measurements'=>null,'is_new_release'=>0,'is_active'=>1];
+    $activeSizesList = get_product_active_sizes();
     $curSizes = ['P','M','G'];
+    $curStock = ['P' => 5, 'M' => 5, 'G' => 5];
     $images = [];
 
     if ($action === 'edit') {
@@ -215,9 +241,14 @@ if ($action === 'new' || $action === 'edit') {
         $stmt->execute([$id]);
         $row = $stmt->fetch();
         if (!$row) { flash_set('error', 'Produto não encontrado.'); admin_redirect('products.php'); }
-        $s = $pdo->prepare('SELECT size FROM product_sizes WHERE product_id = ? ORDER BY position, id');
+        $s = $pdo->prepare('SELECT size, stock FROM product_sizes WHERE product_id = ? ORDER BY position, id');
         $s->execute([$id]);
-        $curSizes = array_column($s->fetchAll(), 'size');
+        $sRows = $s->fetchAll(PDO::FETCH_ASSOC);
+        $curSizes = array_column($sRows, 'size');
+        $curStock = [];
+        foreach ($sRows as $sr) {
+            $curStock[$sr['size']] = (int) $sr['stock'];
+        }
         $im = $pdo->prepare('SELECT * FROM product_images WHERE product_id = ? ORDER BY position, id');
         $im->execute([$id]);
         $images = $im->fetchAll();
@@ -279,15 +310,35 @@ if ($action === 'new' || $action === 'edit') {
         </fieldset>
 
         <label class="field">
-            <span>Tamanhos</span>
-            <span class="inline-checks">
-                <?php foreach (SIZES as $sz): ?>
-                    <label class="check check-sm">
-                        <input type="checkbox" name="sizes[]" value="<?php echo $sz; ?>" <?php echo in_array($sz, $curSizes, true) ? 'checked' : ''; ?>>
-                        <span><?php echo $sz; ?></span>
-                    </label>
+            <span>Tamanhos e Quantidade em Estoque *</span>
+            <small style="margin-bottom: 8px;">Marque os tamanhos fabricados e informe a quantidade disponível em estoque de cada tamanho. Se um tamanho tiver 0 unidades, o anúncio na loja mudará automaticamente para o botão <strong>"Avise-me quando chegar"</strong>.</small>
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 6px;">
+                <?php foreach ($activeSizesList as $sObj): ?>
+                    <?php
+                    $sz = $sObj['code'];
+                    $isChecked = in_array($sz, $curSizes, true);
+                    $stk = $curStock[$sz] ?? ($isChecked ? 5 : 0);
+                    ?>
+                    <div style="background:#fcfbf9; border:1px solid <?php echo $isChecked ? '#121212' : 'var(--a-border)'; ?>; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+                        <label class="check" style="margin:0; font-weight:600;">
+                            <input type="checkbox" name="sizes[]" value="<?php echo e($sz); ?>" <?php echo $isChecked ? 'checked' : ''; ?>>
+                            <span><?php echo e($sz); ?> <small style="display:inline; color:var(--a-muted); font-weight:normal;">(<?php echo e($sObj['name']); ?>)</small></span>
+                        </label>
+                        <div style="display:flex; align-items:center; gap:6px; padding-left:22px;">
+                            <span style="font-size:0.78rem; color:var(--a-muted);">Estoque:</span>
+                            <input type="number" min="0" name="size_stock[<?php echo e($sz); ?>]" value="<?php echo (int) $stk; ?>" style="width:70px; padding:3px 6px; font-size:0.85rem; border:1px solid var(--a-border); border-radius:4px; text-align:center;">
+                            <span style="font-size:0.78rem; color:var(--a-muted);">un</span>
+                            <?php if ($isChecked && (int)$stk === 0): ?>
+                                <span class="badge badge-err" style="font-size:0.65rem;">Sem estoque</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
-            </span>
+            </div>
+            <div style="margin-top:6px; font-size:0.8rem; color:var(--a-muted);">
+                Para gerenciar os tamanhos de mercado (PP, P, M, G, GG, Extra G, etc.), acesse <a href="settings.php#tamanhos" target="_blank" style="text-decoration:underline;">Configurações &rarr; Grade de Tamanhos</a>.
+            </div>
         </label>
 
         <label class="field">
@@ -319,22 +370,17 @@ if ($action === 'new' || $action === 'edit') {
                         <tr><th>Tam.</th><th>Busto (cm)</th><th>Cintura (cm)</th><th>Quadril (cm)</th><th>Comprimento (cm)</th></tr>
                     </thead>
                     <tbody>
-                        <?php
-                        $mHints = [
-                            'P' => ['84-88', '66-70', '94-98', '112'],
-                            'M' => ['90-94', '72-76', '100-104', '113'],
-                            'G' => ['96-100', '78-82', '106-110', '114'],
-                        ];
-                        foreach (SIZES as $sz):
+                        <?php foreach ($activeSizesList as $sObj): ?>
+                            <?php
+                            $sz = $sObj['code'];
                             $mr = $meas['rows'][$sz] ?? [];
-                            $h = $mHints[$sz] ?? ['', '', '', ''];
-                        ?>
+                            ?>
                             <tr>
-                                <td><strong><?php echo $sz; ?></strong></td>
-                                <td><input type="text" name="m[<?php echo $sz; ?>][busto]" value="<?php echo e($mr['busto'] ?? ''); ?>" placeholder="<?php echo $h[0]; ?>"></td>
-                                <td><input type="text" name="m[<?php echo $sz; ?>][cintura]" value="<?php echo e($mr['cintura'] ?? ''); ?>" placeholder="<?php echo $h[1]; ?>"></td>
-                                <td><input type="text" name="m[<?php echo $sz; ?>][quadril]" value="<?php echo e($mr['quadril'] ?? ''); ?>" placeholder="<?php echo $h[2]; ?>"></td>
-                                <td><input type="text" name="m[<?php echo $sz; ?>][comprimento]" value="<?php echo e($mr['comprimento'] ?? ''); ?>" placeholder="<?php echo $h[3]; ?>"></td>
+                                <td><strong><?php echo e($sz); ?></strong></td>
+                                <td><input type="text" name="m[<?php echo e($sz); ?>][busto]" value="<?php echo e($mr['busto'] ?? ''); ?>" placeholder="<?php echo e($sObj['busto_hint'] ?? ''); ?>"></td>
+                                <td><input type="text" name="m[<?php echo e($sz); ?>][cintura]" value="<?php echo e($mr['cintura'] ?? ''); ?>" placeholder="<?php echo e($sObj['cintura_hint'] ?? ''); ?>"></td>
+                                <td><input type="text" name="m[<?php echo e($sz); ?>][quadril]" value="<?php echo e($mr['quadril'] ?? ''); ?>" placeholder="<?php echo e($sObj['quadril_hint'] ?? ''); ?>"></td>
+                                <td><input type="text" name="m[<?php echo e($sz); ?>][comprimento]" value="<?php echo e($mr['comprimento'] ?? ''); ?>" placeholder="<?php echo e($sObj['comprimento_hint'] ?? ''); ?>"></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -410,23 +456,31 @@ if ($action === 'new' || $action === 'edit') {
 $rows = $pdo->query('
     SELECT p.*,
            (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY position, id LIMIT 1) AS thumb,
-           (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) AS img_count
+           (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) AS img_count,
+           (SELECT COALESCE(SUM(stock), 0) FROM product_sizes WHERE product_id = p.id) AS total_stock
     FROM products p ORDER BY p.id DESC
 ')->fetchAll();
+
+// Mapa de tamanhos e estoque por produto
+$psMap = [];
+$psStmt = $pdo->query('SELECT product_id, size, stock FROM product_sizes ORDER BY product_id, position, id');
+foreach ($psStmt->fetchAll() as $ps) {
+    $psMap[$ps['product_id']][] = $ps;
+}
 
 $adminPageTitle = 'Produtos';
 $adminActive = 'products';
 require __DIR__ . '/_header.php';
 ?>
 <div class="list-head">
-    <p class="lead">Cadastro, edição, ativação, preços, promoção por período e imagens dos produtos.</p>
+    <p class="lead">Cadastro, edição, ativação, preços, promoção por período, estoque por tamanho e imagens dos produtos.</p>
     <a href="products.php?action=new" class="btn btn-primary"><?php echo ic('plus'); ?> Novo produto</a>
 </div>
 
 <div class="table-wrap">
     <table class="data-table">
         <thead>
-            <tr><th></th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Promoção</th><th>Imgs</th><th>Status</th><th></th></tr>
+            <tr><th></th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Promoção</th><th>Estoque</th><th>Imgs</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
         <?php foreach ($rows as $r): ?>
@@ -435,6 +489,8 @@ require __DIR__ . '/_header.php';
             $promoLive = $r['sale_price'] !== null
                 && (empty($r['sale_starts_at']) || $now >= $r['sale_starts_at'])
                 && (empty($r['sale_ends_at']) || $now <= $r['sale_ends_at']);
+            $totStk = (int) ($r['total_stock'] ?? 0);
+            $sizesList = $psMap[$r['id']] ?? [];
             ?>
             <tr>
                 <td>
@@ -453,6 +509,24 @@ require __DIR__ . '/_header.php';
                         <span class="badge <?php echo $promoLive ? 'badge-on' : 'badge-off'; ?>"><?php echo $promoLive ? 'no ar' : 'agendada/off'; ?></span>
                     <?php else: ?>
                         <span class="hint">—</span>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if ($totStk <= 0): ?>
+                        <span class="badge badge-err">Esgotado (0 un)</span>
+                    <?php else: ?>
+                        <span class="badge badge-on">Estoque: <?php echo $totStk; ?> un</span>
+                    <?php endif; ?>
+                    <?php if ($sizesList): ?>
+                        <div style="font-size:0.75rem; color:var(--a-muted); margin-top:3px; line-height:1.2;">
+                            <?php
+                            $chips = [];
+                            foreach ($sizesList as $szItem) {
+                                $chips[] = '<strong>' . e($szItem['size']) . '</strong>: ' . (int)$szItem['stock'];
+                            }
+                            echo implode(' &bull; ', $chips);
+                            ?>
+                        </div>
                     <?php endif; ?>
                 </td>
                 <td><?php echo (int) $r['img_count']; ?></td>
@@ -478,7 +552,7 @@ require __DIR__ . '/_header.php';
             </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-            <tr><td colspan="8" class="empty">Nenhum produto cadastrado.</td></tr>
+            <tr><td colspan="9" class="empty">Nenhum produto cadastrado.</td></tr>
         <?php endif; ?>
         </tbody>
     </table>

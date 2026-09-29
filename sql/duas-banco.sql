@@ -229,11 +229,27 @@ CREATE TABLE IF NOT EXISTS `orders` (
   CONSTRAINT `fk_orders_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `sizes` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'letra',
+  `busto_hint` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `cintura_hint` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `quadril_hint` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `comprimento_hint` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `sort_order` int NOT NULL DEFAULT '0',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_sizes_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `cart_items` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `session_id` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
   `product_id` int unsigned NOT NULL,
-  `selected_size` varchar(4) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `selected_size` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
   `quantity` int unsigned NOT NULL DEFAULT '1',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -256,7 +272,8 @@ CREATE TABLE IF NOT EXISTS `product_images` (
 CREATE TABLE IF NOT EXISTS `product_sizes` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `product_id` int unsigned NOT NULL,
-  `size` enum('P','M','G') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `size` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `stock` int unsigned NOT NULL DEFAULT '5',
   `position` tinyint unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_product_size` (`product_id`,`size`),
@@ -268,7 +285,7 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   `order_id` int unsigned NOT NULL,
   `product_id` int unsigned DEFAULT NULL,
   `product_name` varchar(180) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `size` varchar(4) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `size` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
   `quantity` int unsigned NOT NULL DEFAULT '1',
   `unit_price` decimal(10,2) NOT NULL,
   PRIMARY KEY (`id`),
@@ -276,6 +293,23 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   KEY `idx_oi_product` (`product_id`),
   CONSTRAINT `fk_oi_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_oi_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `stock_notifications` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` int unsigned NOT NULL,
+  `product_name` varchar(180) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `size` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `customer_name` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `customer_email` varchar(190) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` enum('pending','notified') NOT NULL DEFAULT 'pending',
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `notified_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_sn_product` (`product_id`,`size`),
+  KEY `idx_sn_email` (`customer_email`),
+  CONSTRAINT `fk_sn_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `order_events` (
@@ -321,6 +355,31 @@ ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
 INSERT INTO `promotions` (`name`,`code`,`discount_type`,`discount_value`,`min_subtotal`,`starts_at`,`ends_at`,`usage_limit`,`is_active`)
 SELECT 'Cupom de boas-vindas', 'DUAS10', 'percent', 10, 0, NULL, NULL, NULL, 1
 WHERE NOT EXISTS (SELECT 1 FROM `promotions` WHERE `code` = 'DUAS10');
+
+-- ---------- GRADE DE TAMANHOS ----------
+
+INSERT INTO `sizes` (`code`, `name`, `category`, `busto_hint`, `cintura_hint`, `quadril_hint`, `comprimento_hint`, `is_active`, `sort_order`) VALUES
+('PP', 'Extra Pequeno (34)', 'letra', '80-84', '62-66', '90-94', '110', 1, 10),
+('P', 'Pequeno (36/38)', 'letra', '84-88', '66-70', '94-98', '112', 1, 20),
+('M', 'Médio (40)', 'letra', '90-94', '72-76', '100-104', '113', 1, 30),
+('G', 'Grande (42)', 'letra', '96-100', '78-82', '106-110', '114', 1, 40),
+('GG', 'Extra Grande (44)', 'letra', '102-106', '84-88', '112-116', '115', 1, 50),
+('Extra G', 'Extra Grande Especial (46)', 'letra', '108-112', '90-94', '118-122', '116', 1, 60),
+('G1', 'Plus Size 48 (G1)', 'letra', '114-118', '96-100', '124-128', '117', 0, 70),
+('G2', 'Plus Size 50 (G2)', 'letra', '120-124', '102-106', '130-134', '118', 0, 80),
+('G3', 'Plus Size 52 (G3)', 'letra', '126-130', '108-112', '136-140', '119', 0, 90),
+('Único', 'Tamanho Único (U)', 'letra', '86-96', '68-78', '96-106', '113', 0, 100),
+('34', 'Tamanho 34 (PP)', 'numero', '80-84', '62-66', '90-94', '110', 0, 110),
+('36', 'Tamanho 36 (P)', 'numero', '84-88', '66-70', '94-98', '111', 0, 120),
+('38', 'Tamanho 38 (P/M)', 'numero', '88-92', '70-74', '98-102', '112', 0, 130),
+('40', 'Tamanho 40 (M)', 'numero', '92-96', '74-78', '102-106', '113', 0, 140),
+('42', 'Tamanho 42 (G)', 'numero', '96-100', '78-82', '106-110', '114', 0, 150),
+('44', 'Tamanho 44 (GG)', 'numero', '102-106', '84-88', '112-116', '115', 0, 160),
+('46', 'Tamanho 46 (Extra G)', 'numero', '108-112', '90-94', '118-122', '116', 0, 170),
+('48', 'Tamanho 48 (Plus)', 'numero', '114-118', '96-100', '124-128', '117', 0, 180),
+('50', 'Tamanho 50 (Plus)', 'numero', '120-124', '102-106', '130-134', '118', 0, 190),
+('52', 'Tamanho 52 (Plus)', 'numero', '126-130', '108-112', '136-140', '119', 0, 200)
+ON DUPLICATE KEY UPDATE `code` = `code`;
 
 -- ---------- USUARIO DO PAINEL ----------
 

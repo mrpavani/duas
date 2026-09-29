@@ -292,6 +292,29 @@ INSERT INTO `promotions` (`name`,`code`,`discount_type`,`discount_value`,`min_su
 SELECT 'Cupom de boas-vindas', 'DUAS10', 'percent', 10, 0, NULL, NULL, NULL, 1
 WHERE NOT EXISTS (SELECT 1 FROM `promotions` WHERE `code` = 'DUAS10');
 
+INSERT INTO `sizes` (`code`, `name`, `category`, `busto_hint`, `cintura_hint`, `quadril_hint`, `comprimento_hint`, `is_active`, `sort_order`) VALUES
+('PP', 'Extra Pequeno (34)', 'letra', '80-84', '62-66', '90-94', '110', 1, 10),
+('P', 'Pequeno (36/38)', 'letra', '84-88', '66-70', '94-98', '112', 1, 20),
+('M', 'Médio (40)', 'letra', '90-94', '72-76', '100-104', '113', 1, 30),
+('G', 'Grande (42)', 'letra', '96-100', '78-82', '106-110', '114', 1, 40),
+('GG', 'Extra Grande (44)', 'letra', '102-106', '84-88', '112-116', '115', 1, 50),
+('Extra G', 'Extra Grande Especial (46)', 'letra', '108-112', '90-94', '118-122', '116', 1, 60),
+('G1', 'Plus Size 48 (G1)', 'letra', '114-118', '96-100', '124-128', '117', 0, 70),
+('G2', 'Plus Size 50 (G2)', 'letra', '120-124', '102-106', '130-134', '118', 0, 80),
+('G3', 'Plus Size 52 (G3)', 'letra', '126-130', '108-112', '136-140', '119', 0, 90),
+('Único', 'Tamanho Único (U)', 'letra', '86-96', '68-78', '96-106', '113', 0, 100),
+('34', 'Tamanho 34 (PP)', 'numero', '80-84', '62-66', '90-94', '110', 0, 110),
+('36', 'Tamanho 36 (P)', 'numero', '84-88', '66-70', '94-98', '111', 0, 120),
+('38', 'Tamanho 38 (P/M)', 'numero', '88-92', '70-74', '98-102', '112', 0, 130),
+('40', 'Tamanho 40 (M)', 'numero', '92-96', '74-78', '102-106', '113', 0, 140),
+('42', 'Tamanho 42 (G)', 'numero', '96-100', '78-82', '106-110', '114', 0, 150),
+('44', 'Tamanho 44 (GG)', 'numero', '102-106', '84-88', '112-116', '115', 0, 160),
+('46', 'Tamanho 46 (Extra G)', 'numero', '108-112', '90-94', '118-122', '116', 0, 170),
+('48', 'Tamanho 48 (Plus)', 'numero', '114-118', '96-100', '124-128', '117', 0, 180),
+('50', 'Tamanho 50 (Plus)', 'numero', '120-124', '102-106', '130-134', '118', 0, 190),
+('52', 'Tamanho 52 (Plus)', 'numero', '126-130', '108-112', '136-140', '119', 0, 200)
+ON DUPLICATE KEY UPDATE `code` = `code`;
+
 -- Usuario do painel: criado apenas se nao houver nenhum. A senha nunca e redefinida.
 INSERT INTO `admin_users` (`name`,`email`,`password_hash`,`is_active`)
 SELECT 'Administrador Duas', 'admin@duasporll.com.br', '$2y$12$q4DXo/6z3XdoH7QDb4UMfO989Y3HBuxS7BzmqQ2r04s9rwpystARm', 1

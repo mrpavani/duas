@@ -33,11 +33,18 @@ foreach ($products as $p) {
 /** Card de produto reutilizado na home */
 function home_product_card(array $product): void
 {
+    $isOut = !empty($product['isOutOfStock']);
+    $sizesStockMap = $product['sizesStock'] ?? [];
     ?>
     <div class="product-card">
         <div class="product-media">
-            <?php if ($product['isNewRelease']): ?><span class="product-badge">Novo</span><?php endif; ?>
-            <?php if ($product['salePrice']): ?>
+            <?php if ($isOut): ?>
+                <span class="product-badge" style="background:#b71c1c; color:#ffffff;">Esgotado</span>
+            <?php elseif ($product['isNewRelease']): ?>
+                <span class="product-badge">Novo</span>
+            <?php endif; ?>
+
+            <?php if ($product['salePrice'] && !$isOut): ?>
                 <span class="product-badge product-badge-sale"><?php echo (int) round((1 - $product['salePrice'] / $product['price']) * 100); ?>% OFF</span>
             <?php endif; ?>
 
@@ -48,9 +55,15 @@ function home_product_card(array $product): void
                 <?php endif; ?>
             </a>
 
-            <button class="quick-add-btn js-add-to-cart" data-product-id="<?php echo $product['id']; ?>" data-size="M">
-                + Comprar Rápido (Tamanho M)
-            </button>
+            <?php if ($isOut): ?>
+                <a href="peca.php?id=<?php echo $product['id']; ?>" class="quick-add-btn" style="background:#121212; color:#ffffff; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    🔔 Avise-me quando chegar
+                </a>
+            <?php else: ?>
+                <button class="quick-add-btn js-add-to-cart" data-product-id="<?php echo $product['id']; ?>" data-size="<?php echo htmlspecialchars($product['sizes'][0] ?? 'M'); ?>">
+                    + Comprar Rápido
+                </button>
+            <?php endif; ?>
         </div>
 
         <div class="product-info">
@@ -68,7 +81,8 @@ function home_product_card(array $product): void
             </div>
             <div class="product-sizes-preview">
                 <?php foreach ($product['sizes'] as $sz): ?>
-                    <span class="size-pill"><?php echo $sz; ?></span>
+                    <?php $szOut = (int)($sizesStockMap[$sz] ?? 0) <= 0; ?>
+                    <span class="size-pill <?php echo $szOut ? 'size-pill-out' : ''; ?>" style="<?php echo $szOut ? 'opacity:0.45; text-decoration:line-through;' : ''; ?>" title="<?php echo $szOut ? 'Tamanho esgotado' : 'Disponível'; ?>"><?php echo htmlspecialchars($sz); ?></span>
                 <?php endforeach; ?>
             </div>
         </div>

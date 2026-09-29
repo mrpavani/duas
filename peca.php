@@ -83,25 +83,89 @@ function render_stars(float $value): string
 
                 <p class="pdp-description"><?php echo htmlspecialchars($product['description']); ?></p>
 
-                <!-- Seletor de Tamanho -->
+                <!-- Seletor de Tamanho e Estoque -->
                 <div>
                     <div class="size-selector-label">
                         <span>Tamanho</span>
                         <a href="#" class="js-open-measures" style="text-decoration: underline; color: var(--color-text-muted); font-size: 0.8rem;">Guia de Medidas</a>
                     </div>
-                    <div class="size-options">
+                    <?php
+                    $sizesStockMap = $product['sizesStock'] ?? [];
+                    $firstSize = $product['sizes'][0] ?? 'M';
+                    $firstSizeStock = (int) ($sizesStockMap[$firstSize] ?? 0);
+                    ?>
+                    <div class="size-options" id="pdpSizeOptions">
                         <?php foreach ($product['sizes'] as $idx => $sz): ?>
-                            <button type="button" class="size-btn <?php echo $idx === 0 ? 'active' : ''; ?>" data-size="<?php echo $sz; ?>">
-                                <?php echo $sz; ?>
+                            <?php
+                            $stk = (int) ($sizesStockMap[$sz] ?? 0);
+                            $isOut = $stk <= 0;
+                            ?>
+                            <button type="button"
+                                    class="size-btn <?php echo $idx === 0 ? 'active' : ''; ?> <?php echo $isOut ? 'is-out' : ''; ?>"
+                                    data-size="<?php echo htmlspecialchars($sz); ?>"
+                                    data-stock="<?php echo $stk; ?>">
+                                <?php echo htmlspecialchars($sz); ?>
                             </button>
                         <?php endforeach; ?>
                     </div>
+
+                    <!-- Indicador visual do estoque do tamanho selecionado -->
+                    <div id="pdpStockBanner" class="pdp-stock-status <?php echo $firstSizeStock > 5 ? 'pdp-stock-in' : ($firstSizeStock > 0 ? 'pdp-stock-low' : 'pdp-stock-out'); ?>">
+                        <?php if ($firstSizeStock > 5): ?>
+                            ✓ Em estoque (<?php echo $firstSizeStock; ?> unidades disponíveis)
+                        <?php elseif ($firstSizeStock > 0): ?>
+                            ⚠️ Restam apenas <?php echo $firstSizeStock; ?> <?php echo $firstSizeStock === 1 ? 'unidade' : 'unidades'; ?> em estoque!
+                        <?php else: ?>
+                            ❌ Tamanho esgotado no momento
+                        <?php endif; ?>
+                    </div>
                 </div>
 
-                <!-- Ação de Compra -->
-                <button type="button" class="btn btn-primary btn-full btn-lg js-add-to-cart" data-product-id="<?php echo $product['id']; ?>" data-size="<?php echo htmlspecialchars($product['sizes'][0]); ?>">
-                    Adicionar à Sacola
-                </button>
+                <!-- Ação de Compra (Exibido quando o tamanho selecionado tem estoque) -->
+                <div id="pdpBuyWrap" <?php echo $firstSizeStock <= 0 ? 'style="display:none;"' : ''; ?>>
+                    <button type="button" class="btn btn-primary btn-full btn-lg js-add-to-cart"
+                            data-product-id="<?php echo $product['id']; ?>"
+                            data-size="<?php echo htmlspecialchars($firstSize); ?>"
+                            data-max-stock="<?php echo $firstSizeStock; ?>">
+                        Adicionar à Sacola
+                    </button>
+                </div>
+
+                <!-- Formulário "Avise-me quando chegar" (Exibido quando o tamanho selecionado está esgotado) -->
+                <div id="pdpWaitlistWrap" class="pdp-waitlist-card" <?php echo $firstSizeStock > 0 ? 'style="display:none;"' : ''; ?>>
+                    <div class="waitlist-header">
+                        <div class="waitlist-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 style="font-size:0.95rem; font-weight:600; margin:0 0 4px 0;">Peça indisponível neste tamanho</h4>
+                            <p style="font-size:0.84rem; color:var(--color-text-muted); margin:0;">
+                                O tamanho <strong id="waitlistSelectedSize" style="color:var(--color-primary);"><?php echo htmlspecialchars($firstSize); ?></strong> está esgotado. Deixe seu nome e e-mail para avisarmos assim que houver reposição:
+                            </p>
+                        </div>
+                    </div>
+
+                    <form id="pdpWaitlistForm" style="margin-top:14px;">
+                        <input type="hidden" id="waitlistProductId" value="<?php echo (int) $product['id']; ?>">
+                        <input type="hidden" id="waitlistSizeInput" value="<?php echo htmlspecialchars($firstSize); ?>">
+
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <input type="text" id="waitlistName" class="waitlist-input" placeholder="Seu nome completo" required>
+                            <input type="email" id="waitlistEmail" class="waitlist-input" placeholder="Seu melhor e-mail" required>
+                            <button type="submit" class="btn btn-secondary btn-full btn-lg" id="waitlistSubmitBtn" style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
+                                <span>Avise-me quando chegar</span>
+                            </button>
+                        </div>
+                        <div id="waitlistFeedback" style="margin-top:10px; font-size:0.86rem; display:none; padding:10px 14px; border-radius:4px;"></div>
+                    </form>
+                </div>
 
                 <!-- Compartilhar -->
                 <div class="pdp-share">

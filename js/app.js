@@ -414,23 +414,142 @@ function updateCartUI(data) {
 function initPDPControls() {
     const sizeBtns = document.querySelectorAll('.size-btn');
     const pdpAddToCartBtn = document.querySelector('.pdp-details-sticky .js-add-to-cart');
+    const buyWrap = document.getElementById('pdpBuyWrap');
+    const waitlistWrap = document.getElementById('pdpWaitlistWrap');
+    const stockBanner = document.getElementById('pdpStockBanner');
+    const waitlistSelectedSize = document.getElementById('waitlistSelectedSize');
+    const waitlistSizeInput = document.getElementById('waitlistSizeInput');
+
+    function updateSizeStockUI(btn) {
+        const selectedSize = btn.dataset.size;
+        const stock = parseInt(btn.dataset.stock, 10) || 0;
+
+        if (pdpAddToCartBtn) {
+            pdpAddToCartBtn.dataset.size = selectedSize;
+            pdpAddToCartBtn.dataset.maxStock = stock;
+        }
+
+        const hiddenSizeInput = document.getElementById('selectedSizeInput');
+        if (hiddenSizeInput) {
+            hiddenSizeInput.value = selectedSize;
+        }
+
+        if (stockBanner) {
+            stockBanner.className = 'pdp-stock-status ' + (stock > 5 ? 'pdp-stock-in' : (stock > 0 ? 'pdp-stock-low' : 'pdp-stock-out'));
+            if (stock > 5) {
+                stockBanner.innerHTML = `✓ Em estoque (${stock} unidades disponíveis)`;
+            } else if (stock > 0) {
+                stockBanner.innerHTML = `⚠️ Restam apenas ${stock} ${stock === 1 ? 'unidade' : 'unidades'} em estoque!`;
+            } else {
+                stockBanner.innerHTML = `❌ Tamanho esgotado no momento`;
+            }
+        }
+
+        if (stock > 0) {
+            if (buyWrap) buyWrap.style.display = '';
+            if (waitlistWrap) waitlistWrap.style.display = 'none';
+        } else {
+            if (buyWrap) buyWrap.style.display = 'none';
+            if (waitlistWrap) waitlistWrap.style.display = '';
+            if (waitlistSelectedSize) waitlistSelectedSize.textContent = selectedSize;
+            if (waitlistSizeInput) waitlistSizeInput.value = selectedSize;
+
+            const feedback = document.getElementById('waitlistFeedback');
+            if (feedback) {
+                feedback.style.display = 'none';
+                feedback.innerHTML = '';
+            }
+        }
+    }
 
     sizeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             sizeBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
-            const selectedSize = btn.dataset.size;
-            if (pdpAddToCartBtn) {
-                pdpAddToCartBtn.dataset.size = selectedSize;
-            }
-
-            const hiddenSizeInput = document.getElementById('selectedSizeInput');
-            if (hiddenSizeInput) {
-                hiddenSizeInput.value = selectedSize;
-            }
+            updateSizeStockUI(btn);
         });
     });
+
+    // Waitlist Form Handler ("Avise-me quando chegar")
+    const waitlistForm = document.getElementById('pdpWaitlistForm');
+    if (waitlistForm) {
+        waitlistForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('waitlistSubmitBtn');
+            const feedback = document.getElementById('waitlistFeedback');
+            const nameInput = document.getElementById('waitlistName');
+            const emailInput = document.getElementById('waitlistEmail');
+            const productId = document.getElementById('waitlistProductId')?.value || '';
+            const size = document.getElementById('waitlistSizeInput')?.value || '';
+
+            if (!nameInput.value.trim() || !emailInput.value.trim()) {
+                if (feedback) {
+                    feedback.style.display = 'block';
+                    feedback.style.background = '#fdf2f2';
+                    feedback.style.color = '#b71c1c';
+                    feedback.style.border = '1px solid #ffcdd2';
+                    feedback.innerHTML = 'Preencha seu nome e e-mail para continuar.';
+                }
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = 'Enviando...';
+            }
+
+            const fd = new FormData();
+            fd.append('productId', productId);
+            fd.append('size', size);
+            fd.append('name', nameInput.value.trim());
+            fd.append('email', emailInput.value.trim());
+
+            fetch('api/stock-notification.php', {
+                method: 'POST',
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (feedback) {
+                    feedback.style.display = 'block';
+                    if (data.success) {
+                        feedback.style.background = '#eaf6ec';
+                        feedback.style.color = '#1b5e20';
+                        feedback.style.border = '1px solid #c8e6c9';
+                        feedback.innerHTML = `✓ ${data.message}`;
+                        nameInput.disabled = true;
+                        emailInput.disabled = true;
+                        if (submitBtn) {
+                            submitBtn.innerHTML = '✓ Solicitação Registrada';
+                            submitBtn.style.opacity = '0.7';
+                        }
+                    } else {
+                        feedback.style.background = '#fdf2f2';
+                        feedback.style.color = '#b71c1c';
+                        feedback.style.border = '1px solid #ffcdd2';
+                        feedback.innerHTML = data.message || 'Erro ao registrar solicitação.';
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = 'Avise-me quando chegar';
+                        }
+                    }
+                }
+            })
+            .catch(() => {
+                if (feedback) {
+                    feedback.style.display = 'block';
+                    feedback.style.background = '#fdf2f2';
+                    feedback.style.color = '#b71c1c';
+                    feedback.style.border = '1px solid #ffcdd2';
+                    feedback.innerHTML = 'Erro de conexão. Tente novamente em instantes.';
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Avise-me quando chegar';
+                }
+            });
+        });
+    }
 
     // Gallery: swap main image on thumbnail click
     const mainImg = document.getElementById('pdpMainImage');

@@ -3,17 +3,25 @@
 $adminPageTitle = $adminPageTitle ?? 'Painel';
 $adminActive = $adminActive ?? '';
 $base = admin_base();
+$pendingWaitlistCount = 0;
+try {
+    $pendingWaitlistCount = (int) db()->query("SELECT COUNT(*) FROM stock_notifications WHERE status = 'pending'")->fetchColumn();
+} catch (Throwable $e) {}
+
+$waitlistLabel = 'Avise-me' . ($pendingWaitlistCount > 0 ? " ({$pendingWaitlistCount})" : '');
+
 $nav = [
-    ''                => ['Visão geral', 'index.php'],
-    'orders'          => ['Pedidos', 'orders.php'],
-    'products'        => ['Produtos', 'products.php'],
-    'blog'            => ['Blog', 'blog.php'],
-    'promotions'      => ['Promoções', 'promotions.php'],
-    'freeship'        => ['Frete grátis', 'free-shipping.php'],
-    'payments'        => ['Meios de pagamento', 'payment-methods.php'],
-    'shipping'        => ['Formas de entrega', 'shipping-methods.php'],
-    'users'           => ['Usuários', 'users.php'],
-    'settings'        => ['Configurações', 'settings.php'],
+    ''                    => ['Visão geral', 'index.php'],
+    'orders'              => ['Pedidos', 'orders.php'],
+    'products'            => ['Produtos', 'products.php'],
+    'stock-notifications' => [$waitlistLabel, 'stock-notifications.php'],
+    'blog'                => ['Blog', 'blog.php'],
+    'promotions'          => ['Promoções', 'promotions.php'],
+    'freeship'            => ['Frete grátis', 'free-shipping.php'],
+    'payments'            => ['Meios de pagamento', 'payment-methods.php'],
+    'shipping'            => ['Formas de entrega', 'shipping-methods.php'],
+    'users'               => ['Usuários', 'users.php'],
+    'settings'            => ['Configurações', 'settings.php'],
 ];
 ?>
 <!DOCTYPE html>

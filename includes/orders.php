@@ -101,13 +101,17 @@ function create_order_from_cart(array $cart, array $totals, array $customer, ?ar
     $orderId = (int) $pdo->lastInsertId();
 
     $insItem = $pdo->prepare('INSERT INTO order_items (order_id, product_id, product_name, size, quantity, unit_price) VALUES (?,?,?,?,?,?)');
+    $decStock = $pdo->prepare('UPDATE product_sizes SET stock = GREATEST(0, stock - ?) WHERE product_id = ? AND size = ?');
     foreach ($cart as $item) {
         $product = get_product_by_id_or_slug($item['productId']);
         if (!$product) continue;
+        $qty = (int) $item['quantity'];
         $insItem->execute([
             $orderId, $product['id'], $product['name'], $item['size'],
-            (int) $item['quantity'], $product['salePrice'] ?? $product['price'],
+            $qty, $product['salePrice'] ?? $product['price'],
         ]);
+        // Decrementa o estoque da peça e tamanho
+        $decStock->execute([$qty, $product['id'], $item['size']]);
     }
 
     order_log($orderId, 'system', null, 'pending', 'Pedido recebido. Aguardando confirmação do pagamento.', [

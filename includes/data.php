@@ -69,9 +69,44 @@ function effective_sale_price(array $row): ?float {
 }
 
 /**
+ * Retorna todos os tamanhos cadastrados no sistema (tabela sizes).
+ */
+function get_all_sizes(bool $activeOnly = false): array {
+    $pdo = db();
+    $sql = 'SELECT * FROM sizes' . ($activeOnly ? ' WHERE is_active = 1' : '') . ' ORDER BY sort_order ASC, id ASC';
+    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Retorna apenas os tamanhos ativos no sistema.
+ */
+function get_active_sizes(): array {
+    return get_all_sizes(true);
+}
+
+/**
  * Converte um registro do banco no formato usado pelo storefront.
  */
-function product_row_to_shape(array $r, array $images, array $sizes): array {
+function product_row_to_shape(array $r, array $images, array $sizesInput): array {
+    $sizes = [];
+    $sizesStock = [];
+    $sizesData = [];
+    $totalStock = 0;
+
+    foreach ($sizesInput as $s) {
+        if (is_array($s)) {
+            $sz = (string) $s['size'];
+            $stk = max(0, (int) ($s['stock'] ?? 0));
+        } else {
+            $sz = (string) $s;
+            $stk = 5;
+        }
+        $sizes[] = $sz;
+        $sizesStock[$sz] = $stk;
+        $sizesData[] = ['size' => $sz, 'stock' => $stk];
+        $totalStock += $stk;
+    }
+
     return [
         'id'             => (int) $r['id'],
         'name'           => $r['name'],
@@ -86,6 +121,10 @@ function product_row_to_shape(array $r, array $images, array $sizes): array {
         'isActive'       => (bool) ($r['is_active'] ?? 1),
         'images'         => $images ?: ['https://placehold.co/1000x1333/f7f6f4/121212?text=Du%C3%A1s'],
         'sizes'          => $sizes ?: ['P', 'M', 'G'],
+        'sizesStock'     => $sizesStock,
+        'sizesData'      => $sizesData,
+        'totalStock'     => $totalStock,
+        'isOutOfStock'   => ($totalStock <= 0),
         'description'    => (string) $r['description'],
         'composition'    => $r['composition'],
         'careInstructions' => $r['care_instructions'],
@@ -112,10 +151,12 @@ function get_products($activeOnly = true) {
     $images = [];
     foreach ($imgStmt->fetchAll() as $row) $images[$row['product_id']][] = $row['image_url'];
 
-    $szStmt = $pdo->prepare("SELECT product_id, size FROM product_sizes WHERE product_id IN ($in) ORDER BY product_id, position, id");
+    $szStmt = $pdo->prepare("SELECT product_id, size, stock FROM product_sizes WHERE product_id IN ($in) ORDER BY product_id, position, id");
     $szStmt->execute($ids);
     $sizes = [];
-    foreach ($szStmt->fetchAll() as $row) $sizes[$row['product_id']][] = $row['size'];
+    foreach ($szStmt->fetchAll() as $row) {
+        $sizes[$row['product_id']][] = ['size' => $row['size'], 'stock' => (int) $row['stock']];
+    }
 
     $out = [];
     foreach ($rows as $r) {
@@ -138,9 +179,12 @@ function get_product_by_id_or_slug($val) {
     $imgStmt->execute([$r['id']]);
     $images = array_column($imgStmt->fetchAll(), 'image_url');
 
-    $szStmt = $pdo->prepare('SELECT size FROM product_sizes WHERE product_id = ? ORDER BY position, id');
+    $szStmt = $pdo->prepare('SELECT size, stock FROM product_sizes WHERE product_id = ? ORDER BY position, id');
     $szStmt->execute([$r['id']]);
-    $sizes = array_column($szStmt->fetchAll(), 'size');
+    $sizes = [];
+    foreach ($szStmt->fetchAll() as $row) {
+        $sizes[] = ['size' => $row['size'], 'stock' => (int) $row['stock']];
+    }
 
     return product_row_to_shape($r, $images, $sizes);
 }

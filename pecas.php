@@ -30,13 +30,15 @@ $filteredProducts = get_filtered_products($categoryFilter, $sortFilter, $searchQ
 
         <!-- Catalog Toolbar / Filters -->
         <div class="catalog-toolbar">
+<?php
+$catalogCategories = array_values(array_unique(array_filter(array_map(fn($p) => $p['category'], get_products(true)))));
+sort($catalogCategories);
+?>
             <div class="filter-categories">
                 <a href="pecas.php" class="filter-link <?php echo (!$categoryFilter || strtolower($categoryFilter) === 'todos') ? 'active' : ''; ?>">Todos</a>
-                <a href="pecas.php?categoria=Vestidos" class="filter-link <?php echo $categoryFilter === 'Vestidos' ? 'active' : ''; ?>">Vestidos</a>
-                <a href="pecas.php?categoria=Blazers" class="filter-link <?php echo $categoryFilter === 'Blazers' ? 'active' : ''; ?>">Blazers</a>
-                <a href="pecas.php?categoria=Conjuntos" class="filter-link <?php echo $categoryFilter === 'Conjuntos' ? 'active' : ''; ?>">Conjuntos</a>
-                <a href="pecas.php?categoria=Blusas" class="filter-link <?php echo $categoryFilter === 'Blusas' ? 'active' : ''; ?>">Blusas</a>
-                <a href="pecas.php?categoria=Calças" class="filter-link <?php echo $categoryFilter === 'Calças' ? 'active' : ''; ?>">Calças</a>
+                <?php foreach ($catalogCategories as $cat): ?>
+                    <a href="pecas.php?categoria=<?php echo urlencode($cat); ?>" class="filter-link <?php echo $categoryFilter === $cat ? 'active' : ''; ?>"><?php echo htmlspecialchars($cat); ?></a>
+                <?php endforeach; ?>
             </div>
 
             <form action="pecas.php" method="GET" style="display: flex; align-items: center; gap: 12px;">
@@ -66,12 +68,22 @@ $filteredProducts = get_filtered_products($categoryFilter, $sortFilter, $searchQ
         <?php else: ?>
             <div class="product-grid">
                 <?php foreach ($filteredProducts as $product): ?>
+                    <?php
+                    $isOut = !empty($product['isOutOfStock']);
+                    $sizesStockMap = $product['sizesStock'] ?? [];
+                    ?>
                     <div class="product-card">
                         <div class="product-media">
-                            <?php if ($product['isNewRelease']): ?>
+                            <?php if ($isOut): ?>
+                                <span class="product-badge" style="background:#b71c1c; color:#ffffff;">Esgotado</span>
+                            <?php elseif ($product['isNewRelease']): ?>
                                 <span class="product-badge">Novo</span>
                             <?php endif; ?>
-                            
+
+                            <?php if ($product['salePrice'] && !$isOut): ?>
+                                <span class="product-badge product-badge-sale"><?php echo (int) round((1 - $product['salePrice'] / $product['price']) * 100); ?>% OFF</span>
+                            <?php endif; ?>
+
                             <a href="peca.php?id=<?php echo $product['id']; ?>">
                                 <img src="<?php echo htmlspecialchars($product['images'][0]); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="product-img">
                                 <?php if (isset($product['images'][1])): ?>
@@ -79,11 +91,17 @@ $filteredProducts = get_filtered_products($categoryFilter, $sortFilter, $searchQ
                                 <?php endif; ?>
                             </a>
 
-                            <button class="quick-add-btn js-add-to-cart" data-product-id="<?php echo $product['id']; ?>" data-size="M">
-                                + Comprar Rápido (Tamanho M)
-                            </button>
+                            <?php if ($isOut): ?>
+                                <a href="peca.php?id=<?php echo $product['id']; ?>" class="quick-add-btn" style="background:#121212; color:#ffffff; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;">
+                                    🔔 Avise-me quando chegar
+                                </a>
+                            <?php else: ?>
+                                <button class="quick-add-btn js-add-to-cart" data-product-id="<?php echo $product['id']; ?>" data-size="<?php echo htmlspecialchars($product['sizes'][0] ?? 'M'); ?>">
+                                    + Comprar Rápido
+                                </button>
+                            <?php endif; ?>
                         </div>
-                        
+
                         <div class="product-info">
                             <span class="product-category"><?php echo htmlspecialchars($product['category']); ?></span>
                             <a href="peca.php?id=<?php echo $product['id']; ?>">
@@ -99,7 +117,8 @@ $filteredProducts = get_filtered_products($categoryFilter, $sortFilter, $searchQ
                             </div>
                             <div class="product-sizes-preview">
                                 <?php foreach ($product['sizes'] as $sz): ?>
-                                    <span class="size-pill"><?php echo $sz; ?></span>
+                                    <?php $szOut = (int)($sizesStockMap[$sz] ?? 0) <= 0; ?>
+                                    <span class="size-pill <?php echo $szOut ? 'size-pill-out' : ''; ?>" style="<?php echo $szOut ? 'opacity:0.45; text-decoration:line-through;' : ''; ?>" title="<?php echo $szOut ? 'Tamanho esgotado' : 'Disponível'; ?>"><?php echo htmlspecialchars($sz); ?></span>
                                 <?php endforeach; ?>
                             </div>
                         </div>

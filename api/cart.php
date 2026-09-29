@@ -19,7 +19,25 @@ if ($action === 'add') {
         exit;
     }
 
+    $stockStmt = db()->prepare('SELECT stock FROM product_sizes WHERE product_id = ? AND size = ? LIMIT 1');
+    $stockStmt->execute([$productId, $size]);
+    $availStock = $stockStmt->fetchColumn();
+
+    if ($availStock !== false && (int)$availStock <= 0) {
+        echo json_encode(['success' => false, 'message' => "O tamanho {$size} está esgotado no momento. Deixe seu e-mail no 'Avise-me quando chegar'."]);
+        exit;
+    }
+
     $key = $productId . '_' . $size;
+    $currentInCart = $_SESSION['cart'][$key]['quantity'] ?? 0;
+    if ($availStock !== false && ($currentInCart + $quantity) > (int)$availStock) {
+        echo json_encode([
+            'success' => false,
+            'message' => "Limite atingido: restam apenas {$availStock} unidades disponíveis em estoque."
+        ]);
+        exit;
+    }
+
     if (isset($_SESSION['cart'][$key])) {
         $_SESSION['cart'][$key]['quantity'] += $quantity;
     } else {
@@ -35,7 +53,15 @@ if ($action === 'add') {
 
     if (isset($_SESSION['cart'][$key])) {
         if ($type === 'increase') {
-            $_SESSION['cart'][$key]['quantity']++;
+            $stockStmt = db()->prepare('SELECT stock FROM product_sizes WHERE product_id = ? AND size = ? LIMIT 1');
+            $stockStmt->execute([$productId, $size]);
+            $availStock = $stockStmt->fetchColumn();
+
+            if ($availStock !== false && $_SESSION['cart'][$key]['quantity'] >= (int)$availStock) {
+                // não permite aumentar além do estoque
+            } else {
+                $_SESSION['cart'][$key]['quantity']++;
+            }
         } elseif ($type === 'decrease') {
             $_SESSION['cart'][$key]['quantity']--;
             if ($_SESSION['cart'][$key]['quantity'] <= 0) {

@@ -103,6 +103,19 @@
         <h3 style="font-family: var(--font-heading); margin-bottom: 8px;">Guia de Medidas Duás</h3>
         <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: 20px;">Nossas modelagens são desenvolvidas seguindo padrões internacionais de alfaiataria com folga de vestibilidade confortável.</p>
 
+        <?php
+        $activeGuideSizes = function_exists('get_active_sizes') ? get_active_sizes() : [];
+        if (!$activeGuideSizes) {
+            $activeGuideSizes = [
+                ['code' => 'PP', 'name' => 'Extra Pequeno (34)', 'busto_hint' => '80-84', 'cintura_hint' => '62-66', 'quadril_hint' => '90-94', 'comprimento_hint' => '110'],
+                ['code' => 'P', 'name' => 'Pequeno (36/38)', 'busto_hint' => '84-88', 'cintura_hint' => '66-70', 'quadril_hint' => '94-98', 'comprimento_hint' => '112'],
+                ['code' => 'M', 'name' => 'Médio (40)', 'busto_hint' => '90-94', 'cintura_hint' => '72-76', 'quadril_hint' => '100-104', 'comprimento_hint' => '113'],
+                ['code' => 'G', 'name' => 'Grande (42)', 'busto_hint' => '96-100', 'cintura_hint' => '78-82', 'quadril_hint' => '106-110', 'comprimento_hint' => '114'],
+                ['code' => 'GG', 'name' => 'Extra Grande (44)', 'busto_hint' => '102-106', 'cintura_hint' => '84-88', 'quadril_hint' => '112-116', 'comprimento_hint' => '115'],
+                ['code' => 'Extra G', 'name' => 'Extra G Especial (46)', 'busto_hint' => '108-112', 'cintura_hint' => '90-94', 'quadril_hint' => '118-122', 'comprimento_hint' => '116'],
+            ];
+        }
+        ?>
         <table class="table-measures">
             <thead>
                 <tr>
@@ -110,27 +123,19 @@
                     <th>Busto (cm)</th>
                     <th>Cintura (cm)</th>
                     <th>Quadril (cm)</th>
+                    <th>Comp. (cm)</th>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td><strong>P (36/38)</strong></td>
-                    <td>84 - 88</td>
-                    <td>66 - 70</td>
-                    <td>94 - 98</td>
-                </tr>
-                <tr>
-                    <td><strong>M (40)</strong></td>
-                    <td>89 - 93</td>
-                    <td>71 - 75</td>
-                    <td>99 - 103</td>
-                </tr>
-                <tr>
-                    <td><strong>G (42)</strong></td>
-                    <td>94 - 98</td>
-                    <td>76 - 80</td>
-                    <td>104 - 108</td>
-                </tr>
+                <?php foreach ($activeGuideSizes as $gs): ?>
+                    <tr>
+                        <td><strong><?php echo htmlspecialchars($gs['code']); ?></strong> <span style="font-size: 0.8rem; color: var(--color-text-muted);">(<?php echo htmlspecialchars($gs['name']); ?>)</span></td>
+                        <td><?php echo htmlspecialchars($gs['busto_hint'] ?: '&mdash;'); ?></td>
+                        <td><?php echo htmlspecialchars($gs['cintura_hint'] ?: '&mdash;'); ?></td>
+                        <td><?php echo htmlspecialchars($gs['quadril_hint'] ?: '&mdash;'); ?></td>
+                        <td><?php echo htmlspecialchars($gs['comprimento_hint'] ?: '&mdash;'); ?></td>
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
 
