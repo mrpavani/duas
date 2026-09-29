@@ -1,7 +1,7 @@
 <?php
 // ==========================================================================
 // DUÁS - CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS (MySQL / PDO)
-// Schema: sql/duas-banco.sql
+// Schema: db/duas-banco.sql
 //
 // As credenciais vêm de includes/config.php (não versionado) ou das variáveis
 // de ambiente DUAS_DB_HOST / DUAS_DB_NAME / DUAS_DB_USER / DUAS_DB_PASS.

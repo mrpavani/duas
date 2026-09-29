@@ -1,6 +1,6 @@
 <?php
 // ==========================================================================
-// DUÁS - Gera sql/duas-atualizar.sql a partir de sql/duas-banco.sql.
+// DUÁS - Gera db/duas-atualizar.sql a partir de db/duas-banco.sql.
 //
 // Rode sempre que mexer no schema (duas-banco.sql):
 //     php bin/gerar-atualizacao.php
@@ -15,8 +15,8 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $raiz    = dirname(__DIR__);
-$origem  = $raiz . '/sql/duas-banco.sql';
-$destino = $raiz . '/sql/duas-atualizar.sql';
+$origem  = $raiz . '/db/duas-banco.sql';
+$destino = $raiz . '/db/duas-atualizar.sql';
 
 $sql = file_get_contents($origem);
 if ($sql === false) { fwrite(STDERR, "nao consegui ler $origem\n"); exit(1); }

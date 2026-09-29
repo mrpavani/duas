@@ -1,6 +1,6 @@
 <?php
 // ==========================================================================
-// DUÁS - Gera sql/duas-atualizar-producao.sql
+// DUÁS - Gera db/duas-atualizar-producao.sql
 // Combina atualização estrutural de schema + migração do catálogo oficial
 // ==========================================================================
 
@@ -11,7 +11,7 @@ $pdo = db();
 // 1. Primeiro rodar gerar-atualizacao.php para garantir duas-atualizar.sql atualizado
 require_once __DIR__ . '/gerar-atualizacao.php';
 
-$schemaSql = file_get_contents(__DIR__ . '/../sql/duas-atualizar.sql');
+$schemaSql = file_get_contents(__DIR__ . '/../db/duas-atualizar.sql');
 
 // 2. Exportar os produtos atuais do banco
 $products = $pdo->query('SELECT * FROM products ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
@@ -169,7 +169,7 @@ $out[] = "SET FOREIGN_KEY_CHECKS = 1;\n";
 $out[] = "-- === FIM DA ATUALIZAÇÃO DE PRODUÇÃO ===\n";
 
 $finalSql = implode("\n", $out);
-$targetFile = __DIR__ . '/../sql/duas-atualizar-producao.sql';
+$targetFile = __DIR__ . '/../db/duas-atualizar-producao.sql';
 file_put_contents($targetFile, $finalSql);
 
 echo "Arquivo gerado com sucesso: $targetFile\n";
