@@ -275,8 +275,8 @@ function home_product_card(array $product): void
     </div>
 </section>
 
-<!-- ====================== Oferta do Dia ====================== -->
-<?php if ($onSale || $topPromo): ?>
+<!-- ====================== Oferta do Dia (OCULTA na home) ====================== -->
+<?php if (false && ($onSale || $topPromo)): ?>
 <section class="section section-neutral">
     <div class="container">
         <div class="section-header">
@@ -355,7 +355,8 @@ function home_product_card(array $product): void
     </div>
 </section>
 
-<!-- ====================== Banner secundário ====================== -->
+<!-- ====================== Banner secundário (OCULTO na home) ====================== -->
+<?php if (false): ?>
 <section class="cta-banner">
     <img src="https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=80" alt="" class="cta-banner-bg" loading="lazy">
     <div class="cta-banner-overlay"></div>
@@ -365,6 +366,7 @@ function home_product_card(array $product): void
         <a href="pecas.php" class="btn btn-primary btn-lg">Compre Agora</a>
     </div>
 </section>
+<?php endif; ?>
 
 <!-- ====================== Blog ====================== -->
 <section class="section">
