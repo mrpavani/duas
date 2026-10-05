@@ -503,6 +503,56 @@ h4 {
     max-width: 680px;
 }
 
+/* Banner principal: imagem inteira, laterais com as cores do banner */
+.hero-banner {
+    height: auto;
+    min-height: 0;
+    background: linear-gradient(180deg, #F0E9DF 0%, #EFE4D2 55%, #EDDDC0 100%);
+    justify-content: center;
+}
+.hero-banner .hero-bg {
+    position: relative;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: calc(75vh - var(--header-height));
+    margin: 0 auto;
+    opacity: 1;
+    object-fit: contain;
+}
+.hero-banner { flex-direction: column; }
+.hero-banner .hero-content {
+    position: absolute;
+    left: 3%;
+    right: auto;
+    bottom: 6%;
+    width: auto;
+    max-width: 24%;
+    margin: 0;
+    padding: 0;
+}
+.hero-banner .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+.hero-banner .hero-actions .btn {
+    text-align: center;
+    white-space: nowrap;
+    padding: 12px 22px;
+    font-size: 0.8rem;
+}
+@media (max-width: 768px) {
+    .hero-banner .hero-content {
+        position: static;
+        max-width: none;
+        width: 100%;
+        padding: 16px 20px 22px;
+    }
+    .hero-banner .hero-actions { flex-direction: row; justify-content: center; }
+}
+
 .hero-content h1 {
     color: #FFFFFF;
     margin-bottom: 16px;
@@ -1003,6 +1053,16 @@ h4 {
     background-color: #FFFFFF;
     color: var(--color-primary);
     border-color: #FFFFFF;
+}
+
+.hero-banner .hero-content .hero-btn-ghost {
+    color: #633D32;
+    border-color: #633D32;
+}
+.hero-banner .hero-content .hero-btn-ghost:hover {
+    background-color: #633D32;
+    color: #FFFFFF;
+    border-color: #633D32;
 }
 
 .section-tight { padding: 44px 0; }

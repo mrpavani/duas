@@ -130,13 +130,9 @@ function home_product_card(array $product): void
 </div>
 
 <!-- ====================== Hero ====================== -->
-<section class="hero-editorial">
-    <img src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=80" alt="Coleção Primavera/Verão Duás" class="hero-bg">
-    <div class="hero-overlay"></div>
+<section class="hero-editorial hero-banner">
+    <img src="img/banner-duas-original.png" alt="Duás — Coleção Primavera/Verão 2026" class="hero-bg">
     <div class="container hero-content">
-        <span class="subtitle">Coleção Primavera / Verão 2026</span>
-        <h1>A Poética da Alfaiataria Fluida</h1>
-        <p>Peças autorais criadas por Larissa e Letícia. Linho puro, seda e recortes precisos para uma elegância sem esforço.</p>
         <div class="hero-actions">
             <a href="pecas.php" class="btn btn-primary btn-lg">Descobrir a Coleção</a>
             <a href="pecas.php?ordem=newest" class="btn btn-outline btn-lg hero-btn-ghost">Comprar Agora</a>
@@ -398,7 +394,7 @@ function home_product_card(array $product): void
 
 <!-- ====================== Faixa Instagram ====================== -->
 <section class="ig-strip">
-    <a href="https://instagram.com" target="_blank" rel="noopener" class="ig-badge" aria-label="Instagram Duás">
+    <a href="https://www.instagram.com/duasporll/" target="_blank" rel="noopener" class="ig-badge" aria-label="Instagram Duás">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
             <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>

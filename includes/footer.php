@@ -13,7 +13,7 @@
                 <a href="index.php" class="footer-brand-name">Modevo.</a>
                 <p>Onde a alfaiataria autoral encontra o cotidiano. Nosso compromisso é criar peças com qualidade, conforto e propósito &mdash; uma de cada vez.</p>
                 <div class="footer-social">
-                    <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram Duás">
+                    <a href="https://www.instagram.com/duasporll/" target="_blank" rel="noopener" aria-label="Instagram Duás">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
                             <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>

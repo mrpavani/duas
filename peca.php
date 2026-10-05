@@ -170,7 +170,7 @@ function render_stars(float $value): string
                 <!-- Compartilhar -->
                 <div class="pdp-share">
                     <span>Compartilhar:</span>
-                    <a href="<?php echo htmlspecialchars($product['instagramUrl'] ?: 'https://instagram.com'); ?>" target="_blank" rel="noopener"><?php echo $product['instagramUrl'] ? 'Ver no Instagram' : 'Instagram'; ?></a>
+                    <a href="<?php echo htmlspecialchars($product['instagramUrl'] ?: 'https://www.instagram.com/duasporll/'); ?>" target="_blank" rel="noopener"><?php echo $product['instagramUrl'] ? 'Ver no Instagram' : 'Instagram'; ?></a>
                     <a href="https://pinterest.com" target="_blank" rel="noopener">Pinterest</a>
                     <a href="https://wa.me/?text=<?php echo urlencode($product['name']); ?>" target="_blank" rel="noopener">WhatsApp</a>
                     <button type="button" class="pdp-copy-link js-copy-link">
