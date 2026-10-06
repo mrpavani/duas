@@ -37,17 +37,37 @@ if ($appliedPromo && promotion_check($appliedPromo, (float) $summary['total'])['
 
 $finalTotal = max(0, $summary['total'] - $discountAmount);
 
-// Frete (usa a 1ª forma de entrega ativa; grátis se a regra vigente foi atingida)
-$shippingMethods = get_active_shipping_methods();
+// Frete: calculado pelo CEP informado no checkout (includes/shipping.php).
+// Antes do CEP o valor fica pendente; ao finalizar, o servidor recalcula com o
+// CEP e a forma de entrega escolhidos, ignorando qualquer valor vindo do navegador.
+require_once __DIR__ . '/includes/shipping.php';
+$shippingLabel = '';
+$shippingCost = 0.0;
+$shippingError = null;
+$shippingPending = true;
 if ($summary['hasFreeShipping']) {
     $shippingLabel = 'Frete grátis';
-    $shippingCost = 0.0;
-} elseif ($shippingMethods) {
-    $shippingLabel = $shippingMethods[0]['label'];
-    $shippingCost = $shippingMethods[0]['flat_rate'] !== null ? (float) $shippingMethods[0]['flat_rate'] : 24.90;
-} else {
-    $shippingLabel = 'Correios';
-    $shippingCost = 24.90;
+    $shippingPending = false;
+}
+if (isset($_POST['place_order']) && !empty($cartItems)) {
+    $shipOptions = shipping_quotes(
+        (string) ($_POST['cust_cep'] ?? ''),
+        (float) $summary['total'],
+        max(1, (int) $summary['count']),
+        (bool) $summary['hasFreeShipping']
+    );
+    $shipChosen = null;
+    foreach ($shipOptions as $opt) {
+        if ($opt['id'] === (int) ($_POST['shipping_method'] ?? 0)) { $shipChosen = $opt; break; }
+    }
+    $shipChosen = $shipChosen ?? ($shipOptions[0] ?? null);
+    if ($shipChosen) {
+        $shippingLabel = $summary['hasFreeShipping'] ? 'Frete grátis' : $shipChosen['label'];
+        $shippingCost = (float) $shipChosen['cost'];
+        $shippingPending = false;
+    } else {
+        $shippingError = 'Não foi possível calcular o frete para o CEP informado. Confira o CEP.';
+    }
 }
 $grandTotal = $finalTotal + $shippingCost;
 
@@ -142,6 +162,7 @@ if (isset($_POST['place_order']) && !empty($cartItems)) {
     if ($form['district'] === '')                                   $formErros[] = 'Informe o bairro.';
     if ($form['city'] === '')                                       $formErros[] = 'Informe a cidade.';
     if (strlen($form['state']) !== 2)                               $formErros[] = 'Informe o estado (UF).';
+    if ($shippingError)                                             $formErros[] = $shippingError;
     if (empty($_POST['lgpd_consent']))                              $formErros[] = 'É necessário aceitar a Política de Privacidade para concluir a compra.';
 
     // A forma de pagamento e obrigatoria e precisa ser uma das oferecidas.
@@ -569,6 +590,13 @@ function render_result_card(string $tone, string $title, string $message, array 
                             </div>
                         </div>
 
+                        <div id="ckShipping" class="ck-shipping" style="margin-top: 20px;">
+                            <h4 style="font-size: 0.95rem; margin-bottom: 8px;">Forma de entrega</h4>
+                            <div id="ckShippingOptions" data-selected="<?php echo (int) ($_POST['shipping_method'] ?? 0); ?>" style="font-size: 0.88rem; color: var(--color-text-muted);">
+                                Informe o CEP para calcular o frete.
+                            </div>
+                        </div>
+
                         <div class="ck-step-nav">
                             <button type="button" class="btn btn-primary btn-lg" data-goto="2">Continuar para pagamento</button>
                         </div>
@@ -743,13 +771,16 @@ function render_result_card(string $tone, string $title, string $message, array 
                         <?php endif; ?>
 
                         <div style="display: flex; justify-content: space-between;">
-                            <span>Frete<?php echo $shippingLabel ? ' (' . htmlspecialchars($shippingLabel) . ')' : ''; ?></span>
-                            <span><?php echo $shippingCost > 0 ? 'R$ ' . number_format($shippingCost, 2, ',', '.') : '<strong style="color:#2E7D32;">GRÁTIS</strong>'; ?></span>
+                            <span id="ckShipLabel">Frete<?php echo $shippingLabel ? ' (' . htmlspecialchars($shippingLabel) . ')' : ''; ?></span>
+                            <span id="ckShipValue"><?php
+                                if ($shippingPending) echo '<em style="font-size:0.82rem;color:var(--color-text-muted);">informe o CEP</em>';
+                                else echo $shippingCost > 0 ? 'R$ ' . number_format($shippingCost, 2, ',', '.') : '<strong style="color:#2E7D32;">GRÁTIS</strong>';
+                            ?></span>
                         </div>
 
                         <div style="display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: 700; border-top: 2px solid var(--color-primary); padding-top: 16px; margin-top: 8px;">
                             <span>Total</span>
-                            <span>R$ <?php echo number_format($grandTotal, 2, ',', '.'); ?></span>
+                            <span id="ckGrandTotal" data-base="<?php echo round((float) $finalTotal, 2); ?>">R$ <?php echo number_format($grandTotal, 2, ',', '.'); ?></span>
                         </div>
                     </div>
 

@@ -188,6 +188,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     if ($name === '')            $errors[] = 'Informe o nome do produto.';
     if ($category === '')        $errors[] = 'Informe a categoria.';
+    elseif (!in_array(mb_strtolower($category), array_map('mb_strtolower', array_column(get_categories(), 'name')), true)) {
+        $errors[] = 'Categoria inválida. Cadastre-a em Configurações > Categorias de Produtos.';
+    }
     if ($price === null || $price <= 0) $errors[] = 'Informe um preço válido.';
     if ($salePrice !== null && $price !== null && $salePrice >= $price) $errors[] = 'O preço promocional deve ser menor que o preço.';
     if ($saleStart && $saleEnd && $saleStart > $saleEnd) $errors[] = 'A data inicial da promoção é posterior à final.';
@@ -278,10 +281,17 @@ if ($action === 'new' || $action === 'edit') {
 
         <label class="field">
             <span>Categoria</span>
-            <input type="text" name="category" list="cats" value="<?php echo e($row['category']); ?>" required>
-            <datalist id="cats">
-                <option value="Vestidos"><option value="Blazers"><option value="Conjuntos"><option value="Blusas"><option value="Calças">
-            </datalist>
+            <?php
+            $catNames = array_column(get_categories(), 'name');
+            if ($row['category'] !== '' && !in_array($row['category'], $catNames, true)) $catNames[] = $row['category'];
+            ?>
+            <select name="category" required>
+                <option value="">Selecione uma categoria</option>
+                <?php foreach ($catNames as $cn): ?>
+                    <option value="<?php echo e($cn); ?>" <?php echo $cn === $row['category'] ? 'selected' : ''; ?>><?php echo e($cn); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <small>Gerencie as categorias em <a href="settings.php#categorias">Configurações</a>.</small>
         </label>
 
         <fieldset class="subfield">

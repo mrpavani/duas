@@ -126,6 +126,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         admin_redirect('settings.php#tamanhos');
     }
+
+    // 6. Categorias de produto: cadastrar
+    if ($op === 'add_category') {
+        ensure_categories_table();
+        $name = trim((string) post('category_name', ''));
+        $sort = (int) post('category_sort', 0);
+        if ($name === '') {
+            flash_set('error', 'Informe o nome da categoria.');
+        } elseif (mb_strlen($name) > 120) {
+            flash_set('error', 'O nome da categoria deve ter no máximo 120 caracteres.');
+        } else {
+            $dup = $pdo->prepare('SELECT id FROM categories WHERE name = ?');
+            $dup->execute([$name]);
+            if ($dup->fetch()) {
+                flash_set('error', "A categoria '{$name}' já existe.");
+            } else {
+                $pdo->prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)')->execute([$name, $sort]);
+                flash_set('success', "Categoria '{$name}' cadastrada.");
+            }
+        }
+        admin_redirect('settings.php#categorias');
+    }
+
+    // 7. Categorias de produto: editar (renomeia também nos produtos vinculados)
+    if ($op === 'edit_category') {
+        ensure_categories_table();
+        $catId = (int) post('category_id', 0);
+        $name = trim((string) post('category_name', ''));
+        $sort = (int) post('category_sort', 0);
+        $cur = $pdo->prepare('SELECT name FROM categories WHERE id = ?');
+        $cur->execute([$catId]);
+        $oldName = $cur->fetchColumn();
+        if ($oldName === false) {
+            flash_set('error', 'Categoria não encontrada.');
+        } elseif ($name === '' || mb_strlen($name) > 120) {
+            flash_set('error', 'Informe um nome de categoria válido (até 120 caracteres).');
+        } else {
+            $dup = $pdo->prepare('SELECT id FROM categories WHERE name = ? AND id <> ?');
+            $dup->execute([$name, $catId]);
+            if ($dup->fetch()) {
+                flash_set('error', "Já existe outra categoria chamada '{$name}'.");
+            } else {
+                $pdo->beginTransaction();
+                try {
+                    $pdo->prepare('UPDATE categories SET name = ?, sort_order = ? WHERE id = ?')->execute([$name, $sort, $catId]);
+                    if ($name !== $oldName) {
+                        $pdo->prepare('UPDATE products SET category = ? WHERE category COLLATE utf8mb4_unicode_ci = ?')
+                            ->execute([$name, $oldName]);
+                    }
+                    $pdo->commit();
+                    flash_set('success', "Categoria '{$name}' atualizada.");
+                } catch (Throwable $ex) {
+                    $pdo->rollBack();
+                    flash_set('error', 'Não foi possível atualizar a categoria.');
+                }
+            }
+        }
+        admin_redirect('settings.php#categorias');
+    }
+
+    // 8. Categorias de produto: excluir (somente sem produto vinculado)
+    if ($op === 'delete_category') {
+        ensure_categories_table();
+        $catId = (int) post('category_id', 0);
+        $cur = $pdo->prepare('SELECT name FROM categories WHERE id = ?');
+        $cur->execute([$catId]);
+        $catName = $cur->fetchColumn();
+        if ($catName === false) {
+            flash_set('error', 'Categoria não encontrada.');
+        } else {
+            $cnt = $pdo->prepare('SELECT COUNT(*) FROM products WHERE category COLLATE utf8mb4_unicode_ci = ?');
+            $cnt->execute([$catName]);
+            $linked = (int) $cnt->fetchColumn();
+            if ($linked > 0) {
+                flash_set('error', "A categoria '{$catName}' não pode ser excluída: há {$linked} produto(s) vinculado(s). Mova ou exclua os produtos primeiro.");
+            } else {
+                $pdo->prepare('DELETE FROM categories WHERE id = ?')->execute([$catId]);
+                flash_set('success', "Categoria '{$catName}' excluída.");
+            }
+        }
+        admin_redirect('settings.php#categorias');
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -395,6 +477,92 @@ require __DIR__ . '/_header.php';
             </div>
         <?php endif; ?>
     </div>
+</div>
+
+<hr style="border:0; border-top:1px solid var(--a-border); margin: 36px 0;">
+
+<!-- ======================================================================== -->
+<!-- SEÇÃO: CATEGORIAS DE PRODUTOS                                             -->
+<!-- ======================================================================== -->
+<?php $allCategories = get_categories(); ?>
+<div id="categorias" style="margin-bottom: 40px;">
+    <h2 style="font-size: 1.25rem; font-weight:600; margin-bottom:6px;">Categorias de Produtos</h2>
+    <p style="color:var(--a-muted); font-size:0.86rem; margin-bottom:16px;">
+        Cadastre, edite e exclua as categorias usadas nos produtos e no menu da loja.
+        Uma categoria só pode ser excluída quando <strong>não há nenhum produto vinculado</strong> a ela.
+    </p>
+
+    <form method="post" class="panel" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; padding:16px;">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="op" value="add_category">
+        <label class="field" style="margin:0; flex:1; min-width:220px;">
+            <span>Nova categoria</span>
+            <input type="text" name="category_name" maxlength="120" placeholder="Ex: Saias" required>
+        </label>
+        <label class="field" style="margin:0; width:90px;">
+            <span>Ordem</span>
+            <input type="number" name="category_sort" value="0">
+        </label>
+        <button type="submit" class="btn btn-primary btn-sm"><?php echo ic('plus'); ?> Cadastrar</button>
+    </form>
+
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th style="width:90px;">Ordem</th>
+                    <th style="width:150px;">Produtos</th>
+                    <th style="width:160px; text-align:right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($allCategories as $cat): ?>
+                    <tr>
+                        <td>
+                            <input type="text" name="category_name" form="catEdit<?php echo $cat['id']; ?>" value="<?php echo e($cat['name']); ?>" maxlength="120" required
+                                   style="width:100%; font-size:0.88rem; padding:5px 8px; border:1px solid var(--a-border); border-radius:4px;">
+                        </td>
+                        <td>
+                            <input type="number" name="category_sort" form="catEdit<?php echo $cat['id']; ?>" value="<?php echo (int) $cat['sort_order']; ?>"
+                                   style="width:65px; font-size:0.85rem; padding:4px 6px; border:1px solid var(--a-border); border-radius:4px; text-align:center;">
+                        </td>
+                        <td>
+                            <?php echo (int) $cat['products']; ?> vinculado(s)
+                            <?php if ($cat['products'] > 0): ?>
+                                <span class="hint" style="display:block;"><?php echo (int) $cat['in_stock']; ?> em estoque</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="row-actions">
+                            <button type="submit" form="catEdit<?php echo $cat['id']; ?>" class="btn btn-secondary btn-sm"><?php echo ic('check', 14); ?> Salvar</button>
+                            <?php if ($cat['products'] === 0): ?>
+                                <button type="submit" form="catDel<?php echo $cat['id']; ?>" class="btn-icon is-danger" title="Excluir categoria"
+                                        onclick="return confirm('Excluir a categoria <?php echo e(addslashes($cat['name'])); ?>?');"><?php echo ic('trash', 14); ?></button>
+                            <?php else: ?>
+                                <span class="btn-icon" title="Exclusão bloqueada: há produtos vinculados" style="opacity:.35; cursor:not-allowed;"><?php echo ic('trash', 14); ?></span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$allCategories): ?>
+                    <tr><td colspan="4" class="empty">Nenhuma categoria cadastrada.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <?php foreach ($allCategories as $cat): ?>
+        <form id="catEdit<?php echo $cat['id']; ?>" method="post" style="display:none;">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="op" value="edit_category">
+            <input type="hidden" name="category_id" value="<?php echo $cat['id']; ?>">
+        </form>
+        <form id="catDel<?php echo $cat['id']; ?>" method="post" style="display:none;">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="op" value="delete_category">
+            <input type="hidden" name="category_id" value="<?php echo $cat['id']; ?>">
+        </form>
+    <?php endforeach; ?>
 </div>
 
 <hr style="border:0; border-top:1px solid var(--a-border); margin: 36px 0;">

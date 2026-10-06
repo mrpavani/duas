@@ -3,7 +3,7 @@ $page_title = "Política de Privacidade";
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/settings.php';
 
-$contatoEmail = 'contato@duasmoda.com.br';
+$contatoEmail = 'contato@duasporll.com.br';
 $atualizadoEm = '10 de Setembro de 2026';
 ?>
 

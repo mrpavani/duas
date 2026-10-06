@@ -70,9 +70,78 @@ function initCepLookup() {
     const cep = document.getElementById('ckCep');
     if (!cep) return;
 
-    cep.addEventListener('blur', async () => {
+    const brl = (v) => 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const optsBox = document.getElementById('ckShippingOptions');
+    const shipLabel = document.getElementById('ckShipLabel');
+    const shipValue = document.getElementById('ckShipValue');
+    const grandEl = document.getElementById('ckGrandTotal');
+    let lastQuoted = '';
+
+    function aplicarOpcao(o) {
+        if (shipLabel) shipLabel.textContent = 'Frete (' + o.label + ')';
+        if (shipValue) {
+            shipValue.innerHTML = o.cost > 0
+                ? brl(o.cost)
+                : '<strong style="color:#2E7D32;">GRÁTIS</strong>';
+        }
+        if (grandEl) {
+            const total = Number(grandEl.dataset.base || 0) + Number(o.cost);
+            grandEl.textContent = brl(total);
+            if (window.DUAS_MP) {
+                window.DUAS_MP.amount = Math.round(total * 100) / 100;
+                window.DUAS_MP.submitLabel = 'Pagar ' + brl(total);
+            }
+            const btn = document.getElementById('mpSubmitBtn');
+            if (btn) btn.textContent = 'Pagar ' + brl(total);
+        }
+    }
+
+    function prazo(o) {
+        if (o.days_min == null && o.days_max == null) return '';
+        const a = o.days_min, b = o.days_max;
+        const txt = (a != null && b != null && a !== b) ? a + ' a ' + b : (a != null ? a : b);
+        return ' · ' + txt + ' dia(s) útil(eis)';
+    }
+
+    async function cotarFrete(digits) {
+        if (!optsBox || digits === lastQuoted) return;
+        lastQuoted = digits;
+        optsBox.textContent = 'Calculando frete…';
+        try {
+            const r = await fetch('api/shipping.php?cep=' + digits, { headers: { 'Accept': 'application/json' } });
+            const d = await r.json();
+            if (!d.ok) { optsBox.textContent = d.error || 'Não foi possível calcular o frete.'; lastQuoted = ''; return; }
+
+            const wanted = Number(optsBox.dataset.selected || 0);
+            optsBox.innerHTML = '';
+            d.options.forEach((o, i) => {
+                const label = document.createElement('label');
+                label.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--color-border); margin-bottom:8px; cursor:pointer; color:var(--color-text);';
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'shipping_method';
+                radio.value = o.id;
+                radio.checked = wanted ? o.id === wanted : i === 0;
+                radio.addEventListener('change', () => aplicarOpcao(o));
+                const info = document.createElement('span');
+                info.style.flex = '1';
+                info.textContent = o.label + prazo(o) + (o.estimated ? ' (estimado)' : '');
+                const price = document.createElement('strong');
+                price.textContent = o.cost > 0 ? brl(o.cost) : 'Grátis';
+                label.append(radio, info, price);
+                optsBox.appendChild(label);
+                if (radio.checked) aplicarOpcao(o);
+            });
+        } catch (e) {
+            optsBox.textContent = 'Não foi possível calcular o frete agora. Tente novamente.';
+            lastQuoted = '';
+        }
+    }
+
+    async function onCep() {
         const digits = (cep.value || '').replace(/\D/g, '');
         if (digits.length !== 8) return;
+        cotarFrete(digits);
         try {
             const r = await fetch('https://viacep.com.br/ws/' + digits + '/json/');
             const d = await r.json();
@@ -86,7 +155,13 @@ function initCepLookup() {
             set('ckCity', d.localidade);
             set('ckState', d.uf);
         } catch (e) { /* offline ou CEP inexistente: o cliente preenche à mão */ }
+    }
+
+    cep.addEventListener('blur', onCep);
+    cep.addEventListener('input', () => {
+        if ((cep.value || '').replace(/\D/g, '').length === 8) onCep();
     });
+    onCep(); // CEP já preenchido (ex.: volta de erro do servidor)
 }
 
 /**

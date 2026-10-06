@@ -25,11 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.95rem; color: var(--color-text-muted);">
                         <div>
                             <strong>WhatsApp Consultoria:</strong><br>
-                            <a href="https://wa.me/5511999999999" target="_blank" style="color: var(--color-primary); font-weight: 500;">+55 (11) 99999-9999</a>
+                            <a href="https://wa.me/5511966101333" target="_blank" rel="noopener" style="color: var(--color-primary); font-weight: 500;">(11) 96610-1333</a>
                         </div>
                         <div>
                             <strong>E-mail Atendimento:</strong><br>
-                            <a href="mailto:contato@duasmoda.com.br" style="color: var(--color-primary); font-weight: 500;">contato@duasmoda.com.br</a>
+                            <a href="mailto:contato@duasporll.com.br" style="color: var(--color-primary); font-weight: 500;">contato@duasporll.com.br</a>
                         </div>
                         <div>
                             <strong>Horário de Atendimento:</strong><br>

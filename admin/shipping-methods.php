@@ -7,9 +7,10 @@ $action = $_GET['action'] ?? 'list';
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 const SETTING_FIELDS = [
-    'origin_cep'        => 'CEP de origem',
-    'contract_code'     => 'Código do contrato',
-    'contract_password' => 'Senha do contrato',
+    'origin_cep'        => 'CEP de origem (obrigatório para calcular)',
+    'contract_code'     => 'Correios: usuário do meu.correios.com.br (ID/CNPJ)',
+    'contract_password' => 'Correios: código de acesso à API (gerado em cws.correios.com.br)',
+    'postcard'          => 'Correios: nº do cartão de postagem',
     'notes'            => 'Observações internas',
 ];
 

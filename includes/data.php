@@ -454,4 +454,49 @@ function get_cart_summary() {
         'hasFreeShipping' => $hasFree
     ];
 }
+
+// --------------------------------------------------------------------------
+// Categorias (tabela categories, gerida em /admin > Configurações)
+// --------------------------------------------------------------------------
+/**
+ * Cria a tabela de categorias se ainda não existir e importa as categorias
+ * que já estão em uso pelos produtos.
+ */
+function ensure_categories_table(): void {
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    $pdo = db();
+    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(120) NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_categories_name (name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $pdo->exec("INSERT IGNORE INTO categories (name)
+                SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category <> ''");
+}
+
+/**
+ * Categorias cadastradas, com a quantidade de produtos vinculados.
+ * @return array<int,array{id:int,name:string,sort_order:int,products:int,in_stock:int}>
+ */
+function get_categories(): array {
+    ensure_categories_table();
+    $rows = db()->query(
+        "SELECT c.id, c.name, c.sort_order,
+                (SELECT COUNT(*) FROM products p WHERE p.category COLLATE utf8mb4_unicode_ci = c.name) AS products,
+                (SELECT COUNT(*) FROM products p WHERE p.category COLLATE utf8mb4_unicode_ci = c.name
+                   AND (SELECT COALESCE(SUM(s.stock), 0) FROM product_sizes s WHERE s.product_id = p.id) > 0) AS in_stock
+         FROM categories c ORDER BY c.sort_order, c.name"
+    )->fetchAll();
+    foreach ($rows as &$r) {
+        $r['id'] = (int) $r['id'];
+        $r['sort_order'] = (int) $r['sort_order'];
+        $r['products'] = (int) $r['products'];
+        $r['in_stock'] = (int) $r['in_stock'];
+    }
+    return $rows;
+}
 ?>
