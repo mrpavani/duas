@@ -20,7 +20,7 @@
                             <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
                         </svg>
                     </a>
-                    <a href="https://tiktok.com" target="_blank" rel="noopener" aria-label="TikTok Duás">
+                    <a href="https://www.tiktok.com/@duasporll?_r=1&_t=ZS-9AKfuC37ahZ" target="_blank" rel="noopener" aria-label="TikTok Duás">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12.75 2h2.9c.16 1.02.53 1.9 1.1 2.63a5.02 5.02 0 0 0 3.25 1.9v2.94a8.02 8.02 0 0 1-4.35-1.4v6.3a6.13 6.13 0 1 1-6.13-6.13c.35 0 .7.03 1.03.09v3.02a3.16 3.16 0 1 0 2.2 3.02V2z"></path>
                         </svg>

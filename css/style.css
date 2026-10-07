@@ -2540,8 +2540,9 @@ h4 {
 
 .qs-hero-img {
     width: 100%;
-    aspect-ratio: 20 / 9;
+    aspect-ratio: 16 / 9;
     object-fit: cover;
+    object-position: center top;
     background-color: var(--color-bg-neutral);
 }
 

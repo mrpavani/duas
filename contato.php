@@ -37,14 +37,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                 </div>
-
-                <div style="background: var(--color-bg-neutral); padding: 32px;">
-                    <h3 style="font-size: 1.2rem; margin-bottom: 12px;">Showroom & Atelier</h3>
-                    <p style="font-size: 0.95rem; color: var(--color-text-muted); line-height: 1.7;">
-                        Atendimento presencial exclusivo sob agendamento prévio.<br>
-                        Alameda Lorena, 1400 - Jardins, São Paulo / SP.
-                    </p>
-                </div>
             </div>
 
             <!-- Contact Form Column -->

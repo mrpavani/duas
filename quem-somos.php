@@ -12,11 +12,11 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
     <!-- Imagem Principal -->
-    <img src="img/qs-imagem-principal.png" alt="Letícia e Larissa na boutique Duás" class="qs-hero-img">
+    <img src="img/img-duas-quem somos.jpeg" alt="Letícia e Larissa na boutique Duás" class="qs-hero-img">
 
     <!-- Letícia -->
     <section class="qs-founder">
-        <img src="img/qs-imagem-1.png" alt="Letícia, cofundadora da Duás">
+        <img src="img/img-leticia-quem-somos.jpeg" alt="Letícia, cofundadora da Duás">
         <div class="qs-founder-text">
             <span class="qs-founder-role">Cofundadora</span>
             <h2>Letícia</h2>
@@ -36,7 +36,7 @@ require_once __DIR__ . '/includes/header.php';
 
     <!-- Larissa -->
     <section class="qs-founder qs-founder-flip">
-        <img src="img/qs-imagem-2.png" alt="Larissa, cofundadora da Duás">
+        <img src="img/imag-larissa-quem-somos.jpeg" alt="Larissa, cofundadora da Duás">
         <div class="qs-founder-text">
             <span class="qs-founder-role">Cofundadora</span>
             <h2>Larissa</h2>
