@@ -218,7 +218,7 @@ function home_product_card(array $product): void
                 <a href="quem-somos.php" class="btn btn-outline">Explore Mais</a>
             </div>
             <div class="story-media">
-                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80" alt="Larissa e Leticia - Estilistas Duás" loading="lazy">
+                <img src="img/img-home-sequente.jpeg" alt="Larissa e Leticia - Estilistas Duás" loading="lazy">
             </div>
         </div>
     </div>

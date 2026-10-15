@@ -12,7 +12,7 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
     <!-- Imagem Principal -->
-    <img src="img/img-duas-quem somos.jpeg" alt="Letícia e Larissa na boutique Duás" class="qs-hero-img">
+    <img src="img/img-home-sequente.jpeg" alt="Letícia e Larissa na boutique Duás" class="qs-hero-img">
 
     <!-- Letícia -->
     <section class="qs-founder">

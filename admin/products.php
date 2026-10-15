@@ -61,9 +61,22 @@ function from_datetime(?string $v): string
 }
 function to_decimal(?string $v): ?float
 {
-    $v = str_replace(['.', ' '], '', trim((string) $v));
-    $v = str_replace(',', '.', $v);
-    return $v === '' ? null : round((float) $v, 2);
+    $v = trim((string) $v);
+    if ($v === '') return null;
+    $v = str_replace(' ', '', $v);
+    if (strpos($v, ',') !== false && strpos($v, '.') !== false) {
+        $lastComma = strrpos($v, ',');
+        $lastDot = strrpos($v, '.');
+        if ($lastComma > $lastDot) {
+            $v = str_replace('.', '', $v);
+            $v = str_replace(',', '.', $v);
+        } else {
+            $v = str_replace(',', '', $v);
+        }
+    } elseif (strpos($v, ',') !== false) {
+        $v = str_replace(',', '.', $v);
+    }
+    return is_numeric($v) ? round((float) $v, 2) : null;
 }
 function admin_img_src(string $url): string
 {
@@ -72,29 +85,86 @@ function admin_img_src(string $url): string
 
 function handle_uploads(PDO $pdo, int $productId): int
 {
-    if (empty($_FILES['images']['name'][0])) return 0;
-    if (!is_dir(UPLOAD_DIR)) @mkdir(UPLOAD_DIR, 0775, true);
+    if (!isset($_FILES['images']) || empty($_FILES['images']['name'])) return 0;
+    if (!is_array($_FILES['images']['name'])) return 0;
 
-    $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-    $pos = (int) $pdo->query('SELECT COALESCE(MAX(position), -1) + 1 FROM product_images WHERE product_id = ' . $productId)->fetchColumn();
+    if (!is_dir(UPLOAD_DIR)) {
+        @mkdir(UPLOAD_DIR, 0775, true);
+    }
+
+    $pos = (int) $pdo->query('SELECT COALESCE(MAX(position), -1) + 1 FROM product_images WHERE product_id = ' . (int) $productId)->fetchColumn();
     $done = 0;
+    $filesCount = count($_FILES['images']['name']);
 
-    foreach ($_FILES['images']['tmp_name'] as $i => $tmp) {
+    for ($i = 0; $i < $filesCount; $i++) {
         $err = $_FILES['images']['error'][$i] ?? UPLOAD_ERR_NO_FILE;
         if ($err === UPLOAD_ERR_NO_FILE) continue;
-        $orig = $_FILES['images']['name'][$i];
-        if ($err !== UPLOAD_ERR_OK)                { flash_set('error', "Falha no upload de {$orig}."); continue; }
-        if ($_FILES['images']['size'][$i] > MAX_IMG_BYTES) { flash_set('error', "{$orig}: acima de 3 MB."); continue; }
-        $mime = function_exists('mime_content_type') ? mime_content_type($tmp) : ($_FILES['images']['type'][$i] ?? '');
-        if (!isset($allowed[$mime]))              { flash_set('error', "{$orig}: use JPG, PNG ou WEBP."); continue; }
+        $orig = htmlspecialchars($_FILES['images']['name'][$i] ?? "arquivo_{$i}");
 
-        $fname = bin2hex(random_bytes(8)) . '.' . $allowed[$mime];
-        if (!move_uploaded_file($tmp, UPLOAD_DIR . '/' . $fname)) { flash_set('error', "Não foi possível salvar {$orig}."); continue; }
+        if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+            flash_set('error', "{$orig}: tamanho excede o limite permitido pelo servidor PHP.");
+            continue;
+        }
+        if ($err !== UPLOAD_ERR_OK) {
+            flash_set('error', "Falha ao enviar {$orig} (código {$err}).");
+            continue;
+        }
 
-        $pdo->prepare('INSERT INTO product_images (product_id, image_url, position) VALUES (?, ?, ?)')
-            ->execute([$productId, UPLOAD_WEB . $fname, $pos++]);
+        $size = (int) ($_FILES['images']['size'][$i] ?? 0);
+        if ($size > MAX_IMG_BYTES) {
+            $mb = round($size / (1024 * 1024), 1);
+            flash_set('error', "{$orig} tem {$mb} MB. O limite máximo é de 3 MB por foto.");
+            continue;
+        }
+
+        $tmp = $_FILES['images']['tmp_name'][$i] ?? '';
+        if (!$tmp || !is_uploaded_file($tmp)) {
+            flash_set('error', "Falha ao processar arquivo temporário de {$orig}.");
+            continue;
+        }
+
+        // Identificação por assinatura binária real
+        $ext = null;
+        $imgInfo = @getimagesize($tmp);
+        if ($imgInfo !== false) {
+            $imgType = $imgInfo[2] ?? 0;
+            if ($imgType === IMAGETYPE_JPEG) $ext = 'jpg';
+            elseif ($imgType === IMAGETYPE_PNG) $ext = 'png';
+            elseif (defined('IMAGETYPE_WEBP') && $imgType === IMAGETYPE_WEBP) $ext = 'webp';
+        }
+
+        // Fallback por MIME e extensão original
+        if (!$ext) {
+            $mime = function_exists('mime_content_type') ? (string) @mime_content_type($tmp) : (string) ($_FILES['images']['type'][$i] ?? '');
+            if (in_array($mime, ['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/jfif'], true)) $ext = 'jpg';
+            elseif (in_array($mime, ['image/png', 'image/x-png'], true)) $ext = 'png';
+            elseif ($mime === 'image/webp') $ext = 'webp';
+            else {
+                $pathExt = strtolower(pathinfo($_FILES['images']['name'][$i], PATHINFO_EXTENSION));
+                if (in_array($pathExt, ['jpg', 'jpeg'], true)) $ext = 'jpg';
+                elseif ($pathExt === 'png') $ext = 'png';
+                elseif ($pathExt === 'webp') $ext = 'webp';
+            }
+        }
+
+        if (!$ext) {
+            flash_set('error', "{$orig}: formato não aceito. Use imagens JPG, PNG ou WEBP.");
+            continue;
+        }
+
+        $fname = 'prod_' . $productId . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+        $destPath = UPLOAD_DIR . '/' . $fname;
+
+        if (!@move_uploaded_file($tmp, $destPath)) {
+            flash_set('error', "Não foi possível gravar {$orig} na pasta de uploads.");
+            continue;
+        }
+
+        $stmt = $pdo->prepare('INSERT INTO product_images (product_id, image_url, position) VALUES (?, ?, ?)');
+        $stmt->execute([$productId, UPLOAD_WEB . $fname, $pos++]);
         $done++;
     }
+
     return $done;
 }
 
@@ -102,6 +172,10 @@ function handle_uploads(PDO $pdo, int $productId): int
 // POST
 // --------------------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0) {
+        flash_set('error', 'O envio excedeu o limite máximo de dados do servidor (post_max_size). Envie imagens menores.');
+        admin_redirect('products.php');
+    }
     csrf_verify();
     $op = post('op');
     $pid = (int) post('id');
@@ -163,8 +237,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $activeSizesList = get_product_active_sizes();
     $activeCodes = array_column($activeSizesList, 'code');
-    $chosenSizes = array_values(array_intersect($activeCodes, (array) post('sizes', [])));
+    $postedSizes = (array) post('sizes', []);
     $stockInput = (array) post('size_stock', []);
+
+    // Se o tamanho foi marcado OU tiver estoque informado (>0), inclui na grade!
+    $detectedSizes = [];
+    foreach ($activeCodes as $code) {
+        $hasCheck = in_array($code, $postedSizes, true);
+        $hasStock = isset($stockInput[$code]) && (int) $stockInput[$code] > 0;
+        if ($hasCheck || $hasStock) {
+            $detectedSizes[] = $code;
+        }
+    }
+    $chosenSizes = $detectedSizes;
     $instagram = trim((string) post('instagram_url', ''));
 
     // Medidas: 1 linha por tamanho ativo + observação
@@ -199,6 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($errors) {
         foreach ($errors as $err) flash_set('error', $err);
+        $_SESSION['form_old_product'] = $_POST;
         admin_redirect('products.php?action=' . ($pid ? 'edit&id=' . $pid : 'new'));
     }
 
@@ -223,7 +309,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $uploaded = handle_uploads($pdo, $pid);
 
-    flash_set('success', 'Produto salvo.' . ($uploaded ? " {$uploaded} imagem(ns) enviada(s)." : ''));
+    $msg = ($pid > 0 ? 'Produto salvo com sucesso!' : 'Produto cadastrado com sucesso!');
+    if ($uploaded > 0) {
+        $msg .= " ({$uploaded} nova(s) imagem(ns) enviada(s))";
+    }
+    flash_set('success', $msg);
     admin_redirect('products.php?action=edit&id=' . $pid);
 }
 
@@ -255,6 +345,30 @@ if ($action === 'new' || $action === 'edit') {
         $im = $pdo->prepare('SELECT * FROM product_images WHERE product_id = ? ORDER BY position, id');
         $im->execute([$id]);
         $images = $im->fetchAll();
+    }
+
+    if (!empty($_SESSION['form_old_product'])) {
+        $old = $_SESSION['form_old_product'];
+        unset($_SESSION['form_old_product']);
+        if (isset($old['name'])) $row['name'] = (string) $old['name'];
+        if (isset($old['slug'])) $row['slug'] = (string) $old['slug'];
+        if (isset($old['category'])) $row['category'] = (string) $old['category'];
+        if (isset($old['price'])) $row['price'] = (string) $old['price'];
+        if (isset($old['sale_price'])) $row['sale_price'] = (string) $old['sale_price'];
+        if (isset($old['sale_starts_at'])) $row['sale_starts_at'] = to_datetime($old['sale_starts_at']);
+        if (isset($old['sale_ends_at'])) $row['sale_ends_at'] = to_datetime($old['sale_ends_at']);
+        if (isset($old['description'])) $row['description'] = (string) $old['description'];
+        if (isset($old['composition'])) $row['composition'] = (string) $old['composition'];
+        if (isset($old['care_instructions'])) $row['care_instructions'] = (string) $old['care_instructions'];
+        if (isset($old['instagram_url'])) $row['instagram_url'] = (string) $old['instagram_url'];
+        $row['is_new_release'] = !empty($old['is_new_release']) ? 1 : 0;
+        $row['is_active'] = !empty($old['is_active']) ? 1 : 0;
+        if (isset($old['sizes'])) $curSizes = (array) $old['sizes'];
+        if (isset($old['size_stock'])) {
+            foreach ((array)$old['size_stock'] as $szK => $szV) {
+                $curStock[$szK] = (int) $szV;
+            }
+        }
     }
     $meas = (!empty($row['measurements']) ? json_decode((string) $row['measurements'], true) : null) ?: ['note' => '', 'rows' => []];
 
@@ -299,11 +413,21 @@ if ($action === 'new' || $action === 'edit') {
             <div class="grid-2">
                 <label class="field field-sm">
                     <span>Preço (R$)</span>
-                    <input type="text" name="price" value="<?php echo e($row['price']); ?>" placeholder="790,00" required>
+                    <?php
+                    $valPrice = $row['price'] !== '' && $row['price'] !== null
+                        ? (is_numeric($row['price']) ? number_format((float) $row['price'], 2, ',', '') : $row['price'])
+                        : '';
+                    ?>
+                    <input type="text" name="price" value="<?php echo e($valPrice); ?>" placeholder="790,00" required>
                 </label>
                 <label class="field field-sm">
                     <span>Preço promocional (R$)</span>
-                    <input type="text" name="sale_price" value="<?php echo e($row['sale_price']); ?>" placeholder="opcional">
+                    <?php
+                    $valSale = $row['sale_price'] !== '' && $row['sale_price'] !== null
+                        ? (is_numeric($row['sale_price']) ? number_format((float) $row['sale_price'], 2, ',', '') : $row['sale_price'])
+                        : '';
+                    ?>
+                    <input type="text" name="sale_price" value="<?php echo e($valSale); ?>" placeholder="opcional">
                 </label>
             </div>
             <div class="grid-2">
@@ -330,14 +454,14 @@ if ($action === 'new' || $action === 'edit') {
                     $isChecked = in_array($sz, $curSizes, true);
                     $stk = $curStock[$sz] ?? ($isChecked ? 5 : 0);
                     ?>
-                    <div style="background:#fcfbf9; border:1px solid <?php echo $isChecked ? '#121212' : 'var(--a-border)'; ?>; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px;">
-                        <label class="check" style="margin:0; font-weight:600;">
-                            <input type="checkbox" name="sizes[]" value="<?php echo e($sz); ?>" <?php echo $isChecked ? 'checked' : ''; ?>>
+                    <div class="size-card-wrap" style="background:<?php echo $isChecked ? '#fcfbf9' : '#fafafa'; ?>; border:1px solid <?php echo $isChecked ? '#121212' : 'var(--a-border)'; ?>; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px; transition:border-color 0.2s, background 0.2s;">
+                        <label class="check" style="margin:0; font-weight:600; cursor:pointer;">
+                            <input type="checkbox" class="size-checkbox" name="sizes[]" value="<?php echo e($sz); ?>" <?php echo $isChecked ? 'checked' : ''; ?>>
                             <span><?php echo e($sz); ?> <small style="display:inline; color:var(--a-muted); font-weight:normal;">(<?php echo e($sObj['name']); ?>)</small></span>
                         </label>
                         <div style="display:flex; align-items:center; gap:6px; padding-left:22px;">
                             <span style="font-size:0.78rem; color:var(--a-muted);">Estoque:</span>
-                            <input type="number" min="0" name="size_stock[<?php echo e($sz); ?>]" value="<?php echo (int) $stk; ?>" style="width:70px; padding:3px 6px; font-size:0.85rem; border:1px solid var(--a-border); border-radius:4px; text-align:center;">
+                            <input type="number" min="0" class="size-stock-input" name="size_stock[<?php echo e($sz); ?>]" value="<?php echo (int) $stk; ?>" style="width:70px; padding:3px 6px; font-size:0.85rem; border:1px solid var(--a-border); border-radius:4px; text-align:center;">
                             <span style="font-size:0.78rem; color:var(--a-muted);">un</span>
                             <?php if ($isChecked && (int)$stk === 0): ?>
                                 <span class="badge badge-err" style="font-size:0.65rem;">Sem estoque</span>
@@ -418,35 +542,27 @@ if ($action === 'new' || $action === 'edit') {
                             <?php if ((int) $img['position'] === 0): ?><span class="img-tag">Principal</span><?php endif; ?>
                             <div class="img-cell-actions">
                                 <?php if ((int) $img['position'] !== 0): ?>
-                                <form method="post" class="inline">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="op" value="img_primary">
-                                    <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
-                                    <input type="hidden" name="image_id" value="<?php echo (int) $img['id']; ?>">
-                                    <button type="submit">Tornar principal</button>
-                                </form>
+                                    <button type="button" onclick="submitImgAction('img_primary', <?php echo (int) $img['id']; ?>)">Tornar principal</button>
                                 <?php endif; ?>
-                                <form method="post" class="inline" onsubmit="return confirm('Remover imagem?');">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="op" value="img_delete">
-                                    <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
-                                    <input type="hidden" name="image_id" value="<?php echo (int) $img['id']; ?>">
-                                    <button type="submit" class="link-danger" title="Remover imagem"><?php echo ic('trash', 13); ?></button>
-                                </form>
+                                <button type="button" class="link-danger" title="Remover imagem" onclick="if(confirm('Remover imagem?')) submitImgAction('img_delete', <?php echo (int) $img['id']; ?>)">
+                                    <?php echo ic('trash', 13); ?>
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php elseif ($action === 'edit'): ?>
-                <p class="hint">Nenhuma imagem ainda.</p>
+                <p class="hint">Nenhuma imagem cadastrada ainda.</p>
             <?php else: ?>
-                <p class="hint">Salve o produto para habilitar o envio de imagens, ou envie já abaixo.</p>
+                <p class="hint">Envie as imagens abaixo ao salvar o produto.</p>
             <?php endif; ?>
 
-            <label class="field" style="margin-top:12px;">
+            <label class="field" style="margin-top:16px;">
                 <span>Enviar imagens (JPG, PNG ou WEBP &mdash; até 3 MB cada)</span>
-                <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" multiple>
+                <input type="file" name="images[]" id="productImagesInput" accept="image/jpeg,image/png,image/webp" multiple>
+                <small style="color:var(--a-muted); margin-top:4px;">Você pode selecionar várias fotos simultâneas segurando Ctrl ou Shift.</small>
             </label>
+            <div id="newImagesPreview" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 12px;"></div>
         </fieldset>
 
         <div class="form-actions">
@@ -454,6 +570,88 @@ if ($action === 'new' || $action === 'edit') {
             <a href="products.php" class="btn btn-ghost">Cancelar</a>
         </div>
     </form>
+
+    <!-- Formulário auxiliar para ações em fotos existentes (fora do form principal) -->
+    <form id="imgActionForm" method="post" style="display:none;">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="op" id="imgActionOp" value="">
+        <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+        <input type="hidden" name="image_id" id="imgActionImageId" value="">
+    </form>
+
+    <script>
+    function submitImgAction(op, imageId) {
+        document.getElementById('imgActionOp').value = op;
+        document.getElementById('imgActionImageId').value = imageId;
+        document.getElementById('imgActionForm').submit();
+    }
+
+    // Pré-visualização instantânea das imagens selecionadas
+    const imgInput = document.getElementById('productImagesInput');
+    const previewBox = document.getElementById('newImagesPreview');
+    if (imgInput && previewBox) {
+        imgInput.addEventListener('change', function() {
+            previewBox.innerHTML = '';
+            const files = Array.from(this.files || []);
+            files.forEach(file => {
+                const card = document.createElement('div');
+                card.style.cssText = 'border:1px solid var(--a-border); border-radius:6px; overflow:hidden; background:#fafafa; padding:6px; font-size:0.75rem; display:flex; flex-direction:column; gap:4px;';
+                
+                const img = document.createElement('img');
+                img.style.cssText = 'width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:4px; display:block;';
+                img.src = URL.createObjectURL(file);
+                
+                const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                const info = document.createElement('div');
+                info.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;';
+                info.title = file.name;
+                info.textContent = file.name;
+
+                const sizeBadge = document.createElement('div');
+                if (file.size > 3145728) {
+                    sizeBadge.style.cssText = 'color:#d32f2f; font-weight:bold;';
+                    sizeBadge.textContent = sizeMb + ' MB (Excede 3MB!)';
+                } else {
+                    sizeBadge.style.cssText = 'color:#4caf50; font-weight:600;';
+                    sizeBadge.textContent = sizeMb + ' MB ✓';
+                }
+
+                card.appendChild(img);
+                card.appendChild(info);
+                card.appendChild(sizeBadge);
+                previewBox.appendChild(card);
+            });
+        });
+    }
+
+    // Sincronização inteligente de tamanhos e estoque
+    document.querySelectorAll('.size-card-wrap').forEach(wrap => {
+        const check = wrap.querySelector('.size-checkbox');
+        const num = wrap.querySelector('.size-stock-input');
+        if (check && num) {
+            num.addEventListener('input', () => {
+                const val = parseInt(num.value, 10) || 0;
+                if (val > 0) {
+                    check.checked = true;
+                }
+                updateWrapState(wrap, check.checked);
+            });
+            check.addEventListener('change', () => {
+                updateWrapState(wrap, check.checked);
+            });
+        }
+    });
+
+    function updateWrapState(wrap, isChecked) {
+        if (isChecked) {
+            wrap.style.borderColor = '#121212';
+            wrap.style.background = '#fcfbf9';
+        } else {
+            wrap.style.borderColor = 'var(--a-border)';
+            wrap.style.background = '#fafafa';
+        }
+    }
+    </script>
 
     <?php
     require __DIR__ . '/_footer.php';
