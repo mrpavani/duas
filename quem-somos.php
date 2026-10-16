@@ -20,8 +20,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="qs-founder-text">
             <span class="qs-founder-role">Cofundadora</span>
             <h2>Letícia</h2>
-            <p>Meu nome é Letícia Rodrigues Jacinto, tenho 22 anos e sou de Muriaé, interior de Minas Gerais. Desde muito cedo, a moda sempre fez parte da minha vida, não apenas como forma de me vestir, mas como uma maneira de expressar quem eu sou. Sempre tive um olhar atento para tendências, novidades e detalhes que fazem a diferença.</p>
-            <p>Sou movida por grandes sonhos e por uma vontade constante de ir além. Tenho uma mentalidade que acredita no crescimento, na evolução e nas possibilidades. Acredito, de forma genuína, que com dedicação, propósito e consistência, é possível alcançar tudo aquilo que se deseja!</p>
+            <p>Meu nome é Letícia, tenho 22 anos e, desde muito cedo, a moda sempre fez parte da minha vida. Não apenas como uma forma de me vestir, mas como uma maneira de expressar quem eu sou. Sempre tive um olhar atento para tendências, novidades e detalhes que fazem a diferença</p>
         </div>
     </section>
 
